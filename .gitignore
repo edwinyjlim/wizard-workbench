@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+**/.next/
+**/out/
+**/dist/
+**/build/
+.vercel/
+.turbo/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+.swc/
+
+# React
+build/
+dist/
+
+# Vite (React)
+dist-ssr/
+*.local
+
+# Environment variables
+.env
+.env.local
+.env*.local
+**/.env
+**/.env.local
+!.env.example
+
+# Database
+*.db
+*.db-journal
+*.sqlite*
+postgres-data/
+**/*.db-wal
+**/*.db-shm
+.drizzle/
+
+# Testing
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Logs
+*.log
+logs/
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# IDEs
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.iml
+*.sublime-*
+
+# Tools
+.claude/
+.stripe/
+
+# Temporary
+tmp/
+temp/
+*.tmp
