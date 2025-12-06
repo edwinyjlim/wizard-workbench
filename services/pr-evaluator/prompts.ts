@@ -48,37 +48,41 @@ ${OUTPUT_FORMAT}`;
 
 export function formatReviewComment(evaluation: {
   summary: { overview: string; filesChanged: number; linesAdded: number; linesRemoved: number };
+  fileAnalysis: { filename: string; score: number; overview: string }[];
   posthogIntegration: {
     score: number;
     eventsTracked: string[];
     errorTrackingSetup: boolean;
     issues: { severity: string; description: string; file?: string; suggestion: string }[];
-    strengths: string[];
-  };
-  runnability: {
-    score: number;
-    canBuild: boolean;
-    canRun: boolean;
-    issues: string[];
-    missingDependencies: string[];
+    criteriaMet: string[];
   };
   codeQuality: {
     score: number;
+    breaksApp: boolean;
+    overwritesExistingCode: boolean;
+    changesAppLogic: boolean;
     isMinimal: boolean;
     isUnderstandable: boolean;
-    isMaintainable: boolean;
     disruptionLevel: string;
     issues: { type: string; description: string; file?: string }[];
+  };
+  insightsQuality: {
+    score: number;
+    meaningfulEvents: boolean;
+    enrichedProperties: boolean;
+    answersProductQuestions: boolean;
+    issues: string[];
+    strengths: string[];
   };
   overallScore: number;
   recommendation: string;
 }): string {
   const recEmoji =
     evaluation.recommendation === "approve"
-      ? ":white_check_mark:"
+      ? "✅"
       : evaluation.recommendation === "request_changes"
-        ? ":x:"
-        : ":thinking:";
+        ? "❌"
+        : "🤔";
 
   let comment = `## PR Evaluation Report
 
@@ -91,59 +95,52 @@ ${evaluation.summary.overview}
 
 ---
 
-### PostHog Integration: ${evaluation.posthogIntegration.score}/10
+### Important Files Changed
+
+| Filename | Score | Overview |
+|----------|-------|----------|
+`;
+
+  for (const file of evaluation.fileAnalysis) {
+    comment += `| \`${file.filename}\` | ${file.score}/5 | ${file.overview} |\n`;
+  }
+
+  comment += `
+---
+
+### PostHog Integration: ${evaluation.posthogIntegration.score}/5
 **Events Tracked:** ${evaluation.posthogIntegration.eventsTracked.length > 0 ? evaluation.posthogIntegration.eventsTracked.join(", ") : "None detected"}
-**Error Tracking:** ${evaluation.posthogIntegration.errorTrackingSetup ? ":white_check_mark: Configured" : ":x: Not configured"}
+**Error Tracking:** ${evaluation.posthogIntegration.errorTrackingSetup ? "✅ Configured" : "❌ Not configured"}
 `;
 
   if (evaluation.posthogIntegration.issues.length > 0) {
     comment += `\n#### Issues\n`;
     for (const issue of evaluation.posthogIntegration.issues) {
-      const icon = issue.severity === "high" ? ":red_circle:" : issue.severity === "medium" ? ":yellow_circle:" : ":white_circle:";
-      comment += `${icon} **${issue.severity.toUpperCase()}**: ${issue.description}`;
+      const icon = issue.severity === "high" ? "🔴" : issue.severity === "medium" ? "🟡" : "⚪";
+      comment += `- ${icon} **${issue.severity.toUpperCase()}**: ${issue.description}`;
       if (issue.file) comment += ` (in \`${issue.file}\`)`;
-      comment += `\n   > ${issue.suggestion}\n\n`;
+      comment += `\n  - ${issue.suggestion}\n`;
     }
   }
 
-  if (evaluation.posthogIntegration.strengths.length > 0) {
-    comment += `\n#### Strengths\n`;
-    for (const strength of evaluation.posthogIntegration.strengths) {
-      comment += `- :star: ${strength}\n`;
-    }
-  }
-
-  comment += `
----
-
-### Runnability: ${evaluation.runnability.score}/10
-- **Can Build:** ${evaluation.runnability.canBuild ? ":white_check_mark:" : ":x:"}
-- **Can Run:** ${evaluation.runnability.canRun ? ":white_check_mark:" : ":x:"}
-`;
-
-  if (evaluation.runnability.issues.length > 0) {
-    comment += `\n#### Issues\n`;
-    for (const issue of evaluation.runnability.issues) {
-      comment += `- :warning: ${issue}\n`;
-    }
-  }
-
-  if (evaluation.runnability.missingDependencies.length > 0) {
-    comment += `\n#### Missing Dependencies\n`;
-    for (const dep of evaluation.runnability.missingDependencies) {
-      comment += `- \`${dep}\`\n`;
+  if (evaluation.posthogIntegration.criteriaMet.length > 0) {
+    comment += `\n#### Criteria met\n`;
+    for (const criteria of evaluation.posthogIntegration.criteriaMet) {
+      comment += `- ✅ ${criteria}\n`;
     }
   }
 
   comment += `
 ---
 
-### Code Quality: ${evaluation.codeQuality.score}/10
+### Code Quality: ${evaluation.codeQuality.score}/5
 | Aspect | Status |
 |--------|--------|
-| Minimal Changes | ${evaluation.codeQuality.isMinimal ? ":white_check_mark:" : ":x:"} |
-| Understandable | ${evaluation.codeQuality.isUnderstandable ? ":white_check_mark:" : ":x:"} |
-| Maintainable | ${evaluation.codeQuality.isMaintainable ? ":white_check_mark:" : ":x:"} |
+| Breaks App | ${evaluation.codeQuality.breaksApp ? "❌ Yes" : "✅ No"} |
+| Overwrites Existing Code | ${evaluation.codeQuality.overwritesExistingCode ? "❌ Yes" : "✅ No"} |
+| Changes App Logic | ${evaluation.codeQuality.changesAppLogic ? "⚠️ Yes" : "✅ No"} |
+| Minimal Changes | ${evaluation.codeQuality.isMinimal ? "✅" : "❌"} |
+| Understandable | ${evaluation.codeQuality.isUnderstandable ? "✅" : "❌"} |
 | Disruption Level | ${evaluation.codeQuality.disruptionLevel} |
 `;
 
@@ -159,7 +156,32 @@ ${evaluation.summary.overview}
   comment += `
 ---
 
-### Overall Score: ${evaluation.overallScore}/10
+### Quality of Insights: ${evaluation.insightsQuality.score}/5
+| Aspect | Status |
+|--------|--------|
+| Meaningful Events | ${evaluation.insightsQuality.meaningfulEvents ? "✅" : "❌"} |
+| Enriched Properties | ${evaluation.insightsQuality.enrichedProperties ? "✅" : "❌"} |
+| Answers Product Questions | ${evaluation.insightsQuality.answersProductQuestions ? "✅" : "❌"} |
+`;
+
+  if (evaluation.insightsQuality.issues.length > 0) {
+    comment += `\n#### Issues\n`;
+    for (const issue of evaluation.insightsQuality.issues) {
+      comment += `- ⚠️ ${issue}\n`;
+    }
+  }
+
+  if (evaluation.insightsQuality.strengths.length > 0) {
+    comment += `\n#### Strengths\n`;
+    for (const strength of evaluation.insightsQuality.strengths) {
+      comment += `- ✅ ${strength}\n`;
+    }
+  }
+
+  comment += `
+---
+
+### Overall Score: ${evaluation.overallScore}/5
 **Recommendation:** ${recEmoji} **${evaluation.recommendation.replace("_", " ").toUpperCase()}**
 
 ---

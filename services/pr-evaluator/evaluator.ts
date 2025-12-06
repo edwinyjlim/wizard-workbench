@@ -56,7 +56,7 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
   for await (const message of query({
     prompt,
     options: {
-      model: "claude-sonnet-4-20250514",
+      model: "claude-opus-4-5-20251101",
       maxTurns: 30,
       allowedTools: ["Read", "Grep", "Glob", "Bash"],
       cwd: process.cwd(),
@@ -110,7 +110,7 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
   }
 
   const evaluation = parseResult.data;
-  console.log(`\nOverall score: ${evaluation.overallScore}/10`);
+  console.log(`\nOverall score: ${evaluation.overallScore}/5`);
   console.log(`Recommendation: ${evaluation.recommendation}`);
 
   const reviewComment = formatReviewComment(evaluation);
