@@ -1,12 +1,17 @@
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import type { PRData } from "./github.js";
 
-export const SYSTEM_PROMPT = `You are a PR evaluation bot that outputs ONLY valid JSON.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-Your task: Evaluate PRs for PostHog integration quality and output a structured JSON evaluation.
+// Load prompt templates from .md files
+const SYSTEM_PROMPT = readFileSync(join(__dirname, "prompts/system.md"), "utf-8").trim();
+const EVALUATION_CRITERIA = readFileSync(join(__dirname, "prompts/evaluation.md"), "utf-8").trim();
+const OUTPUT_FORMAT = readFileSync(join(__dirname, "prompts/output-format.md"), "utf-8").trim();
 
-CRITICAL: Your response must be ONLY a JSON object wrapped in \`\`\`json code blocks. No other text before or after.`;
-
-export function buildEvaluationPrompt(prData: PRData): string {
+function buildPRContext(prData: PRData): string {
   return `## PR Evaluation Task
 
 Evaluate this pull request for PostHog integration quality.
@@ -26,45 +31,19 @@ ${prData.files.map((f) => `- ${f.filename} (${f.status}: +${f.additions}/-${f.de
 ### Diff
 \`\`\`diff
 ${prData.diff}
-\`\`\`
+\`\`\``;
+}
+
+export function buildFullPrompt(prData: PRData): string {
+  return `${SYSTEM_PROMPT}
+
+${buildPRContext(prData)}
 
 ---
 
-## Evaluation Criteria
+${EVALUATION_CRITERIA}
 
-### 1. PostHog Integration (Score 0-10)
-Check for:
-- \`posthog-js\` or \`posthog-node\` in dependencies
-- PostHog initialization with API key
-- Correct API host configuration
-- \`posthog.capture()\` calls for user actions
-- Page view tracking setup
-- User identification (\`posthog.identify()\`)
-- Error tracking setup (exception capture)
-- No PII in event properties
-- Proper cleanup on unmount (React)
-
-### 2. Runnability (Score 0-10)
-Check for:
-- All required dependencies installed
-- No syntax errors
-- Correct import/export statements
-- Environment variables documented
-- Build configuration is valid
-
-### 3. Code Quality (Score 0-10)
-Check for:
-- Minimal, focused changes (no unnecessary modifications)
-- Clear, readable code
-- Consistent with existing patterns
-- No technical debt introduced
-- Appropriate error handling
-
----
-
-## Instructions
-
-Analyze the diff above and return ONLY a JSON evaluation. Do not use any tools - the diff contains everything you need.`;
+${OUTPUT_FORMAT}`;
 }
 
 export function formatReviewComment(evaluation: {

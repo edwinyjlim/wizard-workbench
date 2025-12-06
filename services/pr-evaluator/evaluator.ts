@@ -1,12 +1,14 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { PREvaluationSchema, type PREvaluation } from "./schemas.js";
 import { fetchPR, postPRComment } from "./github.js";
-import { SYSTEM_PROMPT, buildEvaluationPrompt, formatReviewComment } from "./prompts.js";
+import { buildFullPrompt, formatReviewComment } from "./prompts.js";
 
 export interface EvaluateOptions {
   prNumber: number;
   dryRun?: boolean;
   outputFile?: string;
+  jsonFile?: string;
+  savePromptFile?: string;
 }
 
 export interface EvaluateResult {
@@ -31,76 +33,21 @@ function extractJSON(text: string): unknown {
 }
 
 export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResult> {
-  const { prNumber, dryRun = false, outputFile } = options;
+  const { prNumber, dryRun = false, outputFile, jsonFile, savePromptFile } = options;
 
   console.log(`Fetching PR #${prNumber}...`);
   const prData = await fetchPR(prNumber);
   console.log(`PR: "${prData.title}" by @${prData.author}`);
   console.log(`Files changed: ${prData.files.length}`);
 
-  const exampleOutput = {
-    summary: {
-      overview: "Brief description of what the PR does",
-      filesChanged: 5,
-      linesAdded: 100,
-      linesRemoved: 20,
-    },
-    posthogIntegration: {
-      score: 7,
-      eventsTracked: ["todo_created", "page_viewed"],
-      errorTrackingSetup: true,
-      issues: [
-        {
-          severity: "medium",
-          description: "Missing user identification",
-          file: "src/app.tsx",
-          suggestion: "Add posthog.identify() call",
-        },
-      ],
-      strengths: ["Good event naming", "Error tracking configured"],
-    },
-    runnability: {
-      score: 8,
-      canBuild: true,
-      canRun: true,
-      issues: ["Missing env documentation"],
-      missingDependencies: [],
-    },
-    codeQuality: {
-      score: 8,
-      isMinimal: true,
-      isUnderstandable: true,
-      isMaintainable: true,
-      disruptionLevel: "low",
-      issues: [],
-    },
-    overallScore: 7,
-    recommendation: "approve",
-    reviewComment: "The markdown comment to post on the PR",
-  };
+  const prompt = buildFullPrompt(prData);
 
-  const prompt = `${SYSTEM_PROMPT}
-
-${buildEvaluationPrompt(prData)}
-
-## Required Output Format
-
-Return a JSON object with this EXACT structure:
-
-\`\`\`json
-${JSON.stringify(exampleOutput, null, 2)}
-\`\`\`
-
-Rules:
-- Use these exact camelCase property names
-- scores are 0-10
-- severity is "low", "medium", or "high"
-- disruptionLevel is "none", "low", "medium", or "high"
-- recommendation is "approve", "request_changes", or "needs_discussion"
-- All arrays can be empty [] if no items
-- reviewComment should be a formatted markdown summary
-
-Wrap your response in \`\`\`json code blocks.`;
+  // Save prompt if requested
+  if (savePromptFile) {
+    const fs = await import("fs/promises");
+    await fs.writeFile(savePromptFile, prompt, "utf-8");
+    console.log(`\nPrompt saved to: ${savePromptFile}`);
+  }
 
   console.log("\nRunning evaluation agent...");
 
@@ -111,7 +58,7 @@ Wrap your response in \`\`\`json code blocks.`;
     options: {
       model: "claude-sonnet-4-20250514",
       maxTurns: 30,
-      allowedTools: ["Read", "Grep", "Glob"],
+      allowedTools: ["Read", "Grep", "Glob", "Bash"],
       cwd: process.cwd(),
       permissionMode: "bypassPermissions",
     },
@@ -172,6 +119,12 @@ Wrap your response in \`\`\`json code blocks.`;
     const fs = await import("fs/promises");
     await fs.writeFile(outputFile, reviewComment, "utf-8");
     console.log(`\nEvaluation saved to: ${outputFile}`);
+  }
+
+  if (jsonFile) {
+    const fs = await import("fs/promises");
+    await fs.writeFile(jsonFile, JSON.stringify(evaluation, null, 2), "utf-8");
+    console.log(`JSON evaluation saved to: ${jsonFile}`);
   }
 
   let commentUrl: string | undefined;
