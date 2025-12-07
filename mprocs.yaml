@@ -16,7 +16,7 @@ procs:
     stop_signal: SIGTERM
     env_file: .env.mprocs
 
-  wizard:
+  wizard-dev:
     # Skip global link - just build and watch. Use wizard-run to execute.
     shell: "cd ${WIZARD_PATH:-../wizard} && pnpm build && pnpm build:watch"
     autostart: true
@@ -29,7 +29,22 @@ procs:
 
   wizard-run:
     # Run wizard from the built binary (no global install needed)
-    shell: "cd ${TEST_APP:-apps/next-js/15-app-router-saas} && node ~/development/wizard/dist/bin.js --local-mcp"
+    shell: "cd ${TEST_APP:-apps/next-js/15-app-router-saas} && node ~/development/wizard/dist/bin.js --local-mcp --debug"
+    autostart: false
+    env_file: .env.mprocs
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EVALUATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  evaluate:
+    # Set PR_NUMBER in .env.mprocs before running
+    shell: |
+      if [ -z "$PR_NUMBER" ]; then
+        echo "ERROR: Set PR_NUMBER in .env.mprocs first"
+        exit 1
+      fi
+      pnpm run evaluate --pr $PR_NUMBER
     autostart: false
     env_file: .env.mprocs
 
