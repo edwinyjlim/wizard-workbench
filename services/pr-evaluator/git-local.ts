@@ -7,18 +7,52 @@ export interface LocalBranchOptions {
   cwd?: string; // defaults to process.cwd()
 }
 
+function branchExists(branch: string, cwd: string): boolean {
+  try {
+    execSync(`git rev-parse --verify ${branch}`, { cwd, encoding: "utf-8", stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchLocalBranch(options: LocalBranchOptions): Promise<PRData> {
   const { branch, baseBranch = "main", cwd = process.cwd() } = options;
 
   const execOpts = { cwd, encoding: "utf-8" as const };
 
   // Get the current branch if "HEAD" is specified
-  const actualBranch = branch === "HEAD"
-    ? execSync("git rev-parse --abbrev-ref HEAD", execOpts).trim()
-    : branch;
+  let actualBranch: string;
+  if (branch === "HEAD") {
+    try {
+      actualBranch = execSync("git rev-parse --abbrev-ref HEAD", execOpts).trim();
+    } catch {
+      throw new Error("Not in a git repository or unable to determine current branch");
+    }
+  } else {
+    actualBranch = branch;
+  }
+
+  // Validate that the branch exists
+  if (!branchExists(actualBranch, cwd)) {
+    throw new Error(`Branch "${actualBranch}" does not exist. Check the branch name and try again.`);
+  }
+
+  // Validate that the base branch exists
+  if (!branchExists(baseBranch, cwd)) {
+    throw new Error(`Base branch "${baseBranch}" does not exist. Use --base to specify a different base branch.`);
+  }
 
   // Get the merge base (common ancestor)
-  const mergeBase = execSync(`git merge-base ${baseBranch} ${actualBranch}`, execOpts).trim();
+  let mergeBase: string;
+  try {
+    mergeBase = execSync(`git merge-base ${baseBranch} ${actualBranch}`, execOpts).trim();
+  } catch {
+    throw new Error(
+      `Cannot find common ancestor between "${baseBranch}" and "${actualBranch}". ` +
+      `Make sure the branches share history.`
+    );
+  }
 
   // Get diff
   const diff = execSync(`git diff ${mergeBase}...${actualBranch}`, execOpts);

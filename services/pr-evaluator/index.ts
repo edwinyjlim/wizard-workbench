@@ -2,8 +2,22 @@
 import "dotenv/config";
 import { mkdir } from "fs/promises";
 import { join } from "path";
+import * as readline from "readline";
 import { evaluatePR } from "./evaluator.js";
 import { fetchLocalBranch } from "./git-local.js";
+
+function prompt(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
 
 function printUsage(): void {
   console.log(`
@@ -89,19 +103,42 @@ async function main(): Promise<void> {
   }
 
   // Validate that either --pr or --branch is provided
-  const hasPr = args.prNumber && !isNaN(args.prNumber);
-  const hasBranch = !!args.branch;
-
-  if (!hasPr && !hasBranch) {
-    console.error("Error: Either --pr <number> or --branch <name> is required\n");
-    printUsage();
-    process.exit(1);
-  }
+  let hasPr = args.prNumber && !isNaN(args.prNumber);
+  let hasBranch = !!args.branch;
 
   if (hasPr && hasBranch) {
     console.error("Error: Cannot use both --pr and --branch. Choose one.\n");
     printUsage();
     process.exit(1);
+  }
+
+  // Interactive mode if neither --pr nor --branch is provided
+  if (!hasPr && !hasBranch) {
+    console.log("PR Evaluator - Evaluate PostHog integration quality\n");
+    const choice = await prompt("Evaluate a [p]r number or local [b]ranch? (p/b): ");
+
+    if (choice.toLowerCase() === "p" || choice.toLowerCase() === "pr") {
+      const prInput = await prompt("Enter PR number: ");
+      const prNum = parseInt(prInput, 10);
+      if (isNaN(prNum)) {
+        console.error("Error: Invalid PR number");
+        process.exit(1);
+      }
+      args.prNumber = prNum;
+      hasPr = true;
+    } else if (choice.toLowerCase() === "b" || choice.toLowerCase() === "branch") {
+      const branchInput = await prompt("Enter branch name (or 'HEAD' for current branch): ");
+      if (!branchInput) {
+        console.error("Error: Branch name is required");
+        process.exit(1);
+      }
+      args.branch = branchInput;
+      hasBranch = true;
+      // Base branch defaults to 'main', use --base flag if you need a different one
+    } else {
+      console.error("Error: Please enter 'p' for PR or 'b' for branch");
+      process.exit(1);
+    }
   }
 
   // Validate environment
@@ -178,7 +215,20 @@ async function main(): Promise<void> {
       console.log(`Files saved to: ${testRunDir}`);
     }
   } catch (error) {
-    console.error("Error during evaluation:", error);
+    // Show cleaner error messages for common errors
+    if (error instanceof Error) {
+      // GitHub API errors
+      if (error.message.includes("Not Found")) {
+        console.error(`Error: PR #${args.prNumber} not found. Check the PR number and try again.`);
+      } else if (error.message.includes("rate limit")) {
+        console.error("Error: GitHub API rate limit exceeded. Try again later or set GITHUB_TOKEN.");
+      } else {
+        // Show our custom error messages or other errors cleanly
+        console.error(`Error: ${error.message}`);
+      }
+    } else {
+      console.error("Error during evaluation:", error);
+    }
     process.exit(1);
   }
 }
