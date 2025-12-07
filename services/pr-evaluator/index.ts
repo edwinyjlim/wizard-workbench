@@ -13,7 +13,6 @@ Options:
   --pr, -p <number>       PR number to evaluate (required)
   --dry-run               Preview comment without posting to GitHub
   --output, -o <file>     Save evaluation to markdown file
-  --json, -j <file>       Save raw evaluation data to JSON file
   --save-prompt <file>    Save the input prompt to a file (for debugging)
   --help, -h              Show this help message
 
@@ -21,18 +20,22 @@ Examples:
   pnpm run evaluate --pr 123
   pnpm run evaluate --pr 123 --dry-run
   pnpm run evaluate --pr 123 --output evaluation.md
-  pnpm run evaluate --pr 123 --json evaluation.json
   pnpm run evaluate --pr 123 --save-prompt prompt.md
-  pnpm run evaluate --pr 123 -o eval.md -j eval.json --dry-run
+  pnpm run evaluate --pr 123 -o eval.md --dry-run
 `);
 }
 
-function parseArgs(args: string[]): { prNumber?: number; dryRun: boolean; outputFile?: string; jsonFile?: string; savePromptFile?: string; help: boolean } {
+function parseArgs(args: string[]): {
+  prNumber?: number;
+  dryRun: boolean;
+  outputFile?: string;
+  savePromptFile?: string;
+  help: boolean;
+} {
   const result = {
     prNumber: undefined as number | undefined,
     dryRun: false,
     outputFile: undefined as string | undefined,
-    jsonFile: undefined as string | undefined,
     savePromptFile: undefined as string | undefined,
     help: false,
   };
@@ -51,8 +54,6 @@ function parseArgs(args: string[]): { prNumber?: number; dryRun: boolean; output
       }
     } else if (arg === "--output" || arg === "-o") {
       result.outputFile = args[++i];
-    } else if (arg === "--json" || arg === "-j") {
-      result.jsonFile = args[++i];
     } else if (arg === "--save-prompt") {
       result.savePromptFile = args[++i];
     }
@@ -93,13 +94,10 @@ async function main(): Promise<void> {
       prNumber: args.prNumber,
       dryRun: args.dryRun,
       outputFile: args.outputFile,
-      jsonFile: args.jsonFile,
       savePromptFile: args.savePromptFile,
     });
 
     console.log("\n=== Evaluation Complete ===");
-    console.log(`Overall Score: ${result.evaluation.overallScore}/10`);
-    console.log(`Recommendation: ${result.evaluation.recommendation}`);
     if (result.commentUrl) {
       console.log(`Comment URL: ${result.commentUrl}`);
     }

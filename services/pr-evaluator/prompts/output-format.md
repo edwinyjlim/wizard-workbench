@@ -1,73 +1,97 @@
-## Required Output Format
+## Output template
 
-Return a JSON object with this EXACT structure:
+Write your review following this Markdown structure:
 
-```json
-{
-  "summary": {
-    "overview": "In-depth summary of the PR changes",
-    "filesChanged": 5,
-    "linesAdded": 100,
-    "linesRemoved": 20
-  },
-  "fileAnalysis": [
-    {
-      "filename": "src/instrumentation-client.ts",
-      "score": 5,
-      "overview": "PostHog client initialization with proper Next.js 15 pattern. Configures error tracking, debug mode, and modern SDK defaults."
-    },
-    {
-      "filename": "next.config.ts",
-      "score": 5,
-      "overview": "Added PostHog reverse proxy rewrites to circumvent ad-blockers. Clean integration with existing config."
-    }
-  ],
-  "posthogIntegration": {
-    "score": 4,
-    "eventsTracked": ["todo_created", "page_viewed"],
-    "errorTrackingSetup": true,
-    "issues": [
-      {
-        "severity": "medium",
-        "description": "Missing user identification",
-        "file": "src/app.tsx",
-        "suggestion": "Add posthog.identify() call"
-      }
-    ],
-    "criteriaMet": ["Reverse proxy setup to circumvent ad-blockers", "Proper initialization pattern for framework"]
-  },
-  "codeQuality": {
-    "score": 4,
-    "breaksApp": false,
-    "overwritesExistingCode": false,
-    "changesAppLogic": false,
-    "isMinimal": true,
-    "isUnderstandable": true,
-    "disruptionLevel": "low",
-    "issues": []
-  },
-  "insightsQuality": {
-    "score": 4,
-    "meaningfulEvents": true,
-    "enrichedProperties": true,
-    "answersProductQuestions": true,
-    "issues": [],
-    "strengths": ["Events tied to user actions", "Properties provide context"]
-  },
-  "overallScore": 4,
-  "recommendation": "approve",
-  "reviewComment": "The markdown comment to post on the PR"
-}
-```
+---
 
-Rules:
-- Use these exact camelCase property names
-- scores are 1-5
-- severity is "low", "medium", or "high"
-- disruptionLevel is "none", "low", "medium", or "high"
-- recommendation is "approve", "request_changes", or "needs_discussion"
-- All arrays can be empty [] if no items
-- fileAnalysis must include an entry for each file changed in the PR
-- reviewComment should be a formatted markdown summary
+## PR Evaluation Report
 
-Wrap your response in ```json code blocks.
+### Summary
+[1-3 sentence overview of the PR changes]
+
+| Files changed | Lines added | Lines removed |
+|---------------|-------------|---------------|
+| X | +Y | -Z |
+
+### Confidence score: X/5 🧙 if 5/5 / 👍 if 4/5 / 🤔 if 3/5 / ❌ if 2/5 or 1/5
+
+- detailed change or recommendation that's CRITICAL or MEDIUM severity
+- detailed change or recommendation that's CRITICAL or MEDIUM severity
+
+---
+
+### Files changed
+
+| Filename | Score | Description | 
+|----------|-------|-------------|
+| `path/to/file.ts` | X/5 | Brief description of changes 
+
+---
+
+### App sanity check score: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
+
+| Criteria | Result | Description |
+|----------|--------|-------------|
+| **App builds and runs** | Yes / No | Description |
+| **Preserves existing env vars & configs** |	Yes / No | Description |
+| **No syntax or type errors** |	Yes / No | Description |
+| **Correct imports/exports** |	Yes / No | Description |
+| **Minimal, focused changes** | Yes / No | Description |
+
+#### Issues
+- **Issue title**: Description of high severity issue. Description of fix. [CRITICAL] 
+- **Issue title**: Description of medium severity issue. Description of fix. [MEDIUM] 
+- **Issue title**: Description of low severity issue. Description of fix. [LOW]
+
+<details>
+<summary><h4>Other completed criteria</h4><summary>
+- Other criterion met
+- Other criterion met
+</details>
+
+---
+
+### PostHog implementation score: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
+
+| Criteria | Result | Description |
+|----------|--------|-------------|
+| **PostHog SDKs installed** | Yes / No | Description of packages installed |
+| **PostHog client initailized** | Yes / No | Description of client config and how PostHog is initialized within the app |
+| **capture()** | Yes / No | Description |
+| **Identify()** |  Yes / No | Description |
+| **Error tracking:** |  Yes / No | Description |
+| **Reverse proxy:** |  Yes / No | Description |
+
+#### Issues
+- **Issue title**: Description of high severity issue. Description of fix. [CRITICAL] 
+- **Issue title**: Description of medium severity issue. Description of fix. [MEDIUM] 
+- **Issue title**: Description of low severity issue. Description of fix. [LOW]
+
+<details>
+<summary><h4>Other completed criteria</h4><summary>
+- Other criterion met
+- Other criterion met
+</details>
+
+---
+
+### PostHog insights score: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
+
+| Filename | PostHog events | Description |
+|----------|-----------------|-------------|
+| `filename` | `event_one`, `event_two`, or `capturedException` | Description of insights, analytics, error tracking, or product behavior captured by PostHog integration | 
+
+#### Issues
+- **Issue title**: Description of high severity issue. Description of fix. [CRITICAL] 
+- **Issue title**: Description of medium severity issue. Description of fix. [MEDIUM] 
+- **Issue title**: Description of low severity issue. Description of fix. [LOW]
+
+<details>
+<summary><h4>Other completed criteria</h4><summary>
+- Other criterion met
+- Other criterion met
+</details>
+
+---
+
+Reviewed by wizard workbench PR evaluator

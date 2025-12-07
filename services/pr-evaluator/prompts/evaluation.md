@@ -9,28 +9,28 @@ For each file in the PR:
 
 After reading all files, provide your evaluation.
 
----
+## Scoring Scale (apply to all sections)
 
-## Evaluation Criteria
+| Score | Meaning |
+|-------|---------|
+| 5 | Complete, correct, production-ready |
+| 4 | Works with minor gaps or polish issues |
+| 3 | Core works but notable issues or missing pieces remain |
+| 2 | Major problems, risky to ship |
+| 1 | Does not function, critical failures |
 
-### 1. PostHog integration (Score 1-5)
+Most competent work scores 3-4. Be specific about gaps and what's missing, not just what's present. Be CRITICAL and DIRECT. Do not praise unnecessarily or inflate scores.
+
+## Evaluation criteria
+
+### 1. File analysis (score 1-5)
+For each file changed in the PR, assess:
+- What changed and how it fits into the PostHog integration
+- How well the file’s changes upholds reliability, correctness, and best practices within the original app codebase 
+
+### 2. App sanity check (score 1-5)
 Check for:
-- `posthog-js` or `posthog-node` in dependencies
-- PostHog initialization with API key
-- Correct API host configuration
-- Correct initialization patterns by framework
-- Captures baseline events (pageviews, screen views, custom events)
-- `posthog.capture()` calls for user actions
-- Page view tracking setup
-- User identification (`posthog.identify()`)
-- Error tracking setup (exception capture)
-- No PII in event properties
-- Proper cleanup on unmount (React)
-- Reverse proxy that circumvents adblock issues when sending events to PostHog
-
-### 2. Code quality (Score 1-5)
-Check for:
-- App runs and is functional
+- App builds, runs, and is functional
 - Preserves existing app code, configs, and logic
 - Minimal, focused changes (no unnecessary modifications)
 - Clear, readable code
@@ -41,14 +41,26 @@ Check for:
 - Environment variables documented
 - Build configuration is valid
 
-### 3. Quality of insights enabled (Score 1-5)
+### 3. PostHog implementation (score 1-5)
 Check for:
-- Are the captured events meaningful and tied to real user actions or friction points?
-- Events enriched with relevant properties
-- Do the insights unlocked help answer real product questions?
+- `posthog-js` or `posthog-node` in dependencies
+- Correct initialization patterns by framework
+- Correct API host configuration
+- PostHog initialization with API key
+- Captures baseline events (pageviews, screen views, custom events)
+- `posthog.capture()` calls for user actions
+- Page view tracking setup
+- User identification (`posthog.identify()`)
+- Error tracking setup (exception capture)
+- No PII in event properties
+- Proper cleanup on unmount (React)
+- Reverse proxy that circumvents adblock issues when sending events to PostHog
 
-### 4. File Analysis
-For each file changed in the PR, provide:
-- **Filename**: The path to the file
-- **Score (1-5)**: Quality/impact score for changes in this file
-- **Overview**: Brief description of what changed and why it matters
+### 4. Quality of PostHog insights and events (score 1-5)
+Check for:
+- Captured events that represent real user actions, product flows, and friction points
+- Captured events that can be used to build PostHog insights and help answer product questions
+- Events enriched with relevant properties
+
+### 5. Confidence score (score 1-5)
+A final composite score that reflects your overall assessment of the PR. Scores from sections #1–#3 should carry more weight than #4, quality of PostHog insights and event design.

@@ -1,39 +1,21 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { PREvaluationSchema, type PREvaluation } from "./schemas.js";
 import { fetchPR, postPRComment } from "./github.js";
-import { buildFullPrompt, formatReviewComment } from "./prompts.js";
+import { buildFullPrompt } from "./prompt-builder.js";
 
 export interface EvaluateOptions {
   prNumber: number;
   dryRun?: boolean;
   outputFile?: string;
-  jsonFile?: string;
   savePromptFile?: string;
 }
 
 export interface EvaluateResult {
-  evaluation: PREvaluation;
+  reviewComment: string;
   commentUrl?: string;
 }
 
-function extractJSON(text: string): unknown {
-  // Try to find JSON in code blocks
-  const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/);
-  if (jsonMatch) {
-    return JSON.parse(jsonMatch[1]);
-  }
-
-  // Try to find raw JSON object
-  const objectMatch = text.match(/\{[\s\S]*\}/);
-  if (objectMatch) {
-    return JSON.parse(objectMatch[0]);
-  }
-
-  throw new Error("No JSON found in response");
-}
-
 export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResult> {
-  const { prNumber, dryRun = false, outputFile, jsonFile, savePromptFile } = options;
+  const { prNumber, dryRun = false, outputFile, savePromptFile } = options;
 
   console.log(`Fetching PR #${prNumber}...`);
   const prData = await fetchPR(prNumber);
@@ -92,39 +74,13 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
     throw new Error("No result received from agent");
   }
 
-  // Parse the JSON from the result
-  let rawEvaluation: unknown;
-  try {
-    rawEvaluation = extractJSON(resultText);
-  } catch {
-    console.error("Failed to parse JSON from result:", resultText.substring(0, 500));
-    throw new Error("Failed to extract JSON from agent response");
-  }
-
-  // Validate against schema
-  const parseResult = PREvaluationSchema.safeParse(rawEvaluation);
-  if (!parseResult.success) {
-    console.error("Schema validation errors:", parseResult.error.errors);
-    console.error("Raw evaluation:", JSON.stringify(rawEvaluation, null, 2).substring(0, 1000));
-    throw new Error("Evaluation result does not match expected schema");
-  }
-
-  const evaluation = parseResult.data;
-  console.log(`\nOverall score: ${evaluation.overallScore}/5`);
-  console.log(`Recommendation: ${evaluation.recommendation}`);
-
-  const reviewComment = formatReviewComment(evaluation);
+  // The agent outputs markdown directly - use it as the review comment
+  const reviewComment = resultText.trim();
 
   if (outputFile) {
     const fs = await import("fs/promises");
     await fs.writeFile(outputFile, reviewComment, "utf-8");
     console.log(`\nEvaluation saved to: ${outputFile}`);
-  }
-
-  if (jsonFile) {
-    const fs = await import("fs/promises");
-    await fs.writeFile(jsonFile, JSON.stringify(evaluation, null, 2), "utf-8");
-    console.log(`JSON evaluation saved to: ${jsonFile}`);
   }
 
   let commentUrl: string | undefined;
@@ -138,5 +94,5 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
     console.log("--- END PREVIEW ---\n");
   }
 
-  return { evaluation, commentUrl };
+  return { reviewComment, commentUrl };
 }
