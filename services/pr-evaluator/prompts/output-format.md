@@ -17,10 +17,12 @@ Write your review following this Markdown structure:
 
 - detailed change or recommendation that's CRITICAL or MEDIUM severity
 - detailed change or recommendation that's CRITICAL or MEDIUM severity
+- detailed change or recommendation that's CRITICAL or MEDIUM severity
+
 
 ---
 
-### Files changed
+### File changes
 
 | Filename | Score | Description | 
 |----------|-------|-------------|
@@ -28,7 +30,7 @@ Write your review following this Markdown structure:
 
 ---
 
-### App sanity check score: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
+### App sanity check: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
 
 | Criteria | Result | Description |
 |----------|--------|-------------|
@@ -51,7 +53,7 @@ Write your review following this Markdown structure:
 
 ---
 
-### PostHog implementation score: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
+### PostHog implementation: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
 
 | Criteria | Result | Description |
 |----------|--------|-------------|
@@ -75,7 +77,7 @@ Write your review following this Markdown structure:
 
 ---
 
-### PostHog insights score: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
+### PostHog insights and events: X/5 ✅ if 5/5 or 4/5 / ⚠️ if 3/5 / ❌ if 2/5 or 1/5
 
 | Filename | PostHog events | Description |
 |----------|-----------------|-------------|

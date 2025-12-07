@@ -1,12 +1,11 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { fetchPR, postPRComment } from "./github.js";
-import { buildFullPrompt } from "./prompt-builder.js";
+import { buildSystemPrompt, buildUserPrompt } from "./prompt-builder.js";
 
 export interface EvaluateOptions {
   prNumber: number;
-  dryRun?: boolean;
-  outputFile?: string;
-  savePromptFile?: string;
+  testRun?: boolean;
+  testRunDir?: string;
 }
 
 export interface EvaluateResult {
@@ -15,20 +14,24 @@ export interface EvaluateResult {
 }
 
 export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResult> {
-  const { prNumber, dryRun = false, outputFile, savePromptFile } = options;
+  const { prNumber, testRun = false, testRunDir } = options;
 
   console.log(`Fetching PR #${prNumber}...`);
+
   const prData = await fetchPR(prNumber);
+
   console.log(`PR: "${prData.title}" by @${prData.author}`);
   console.log(`Files changed: ${prData.files.length}`);
 
-  const prompt = buildFullPrompt(prData);
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildUserPrompt(prData);
 
-  // Save prompt if requested
-  if (savePromptFile) {
+  // Save prompt if test run
+  if (testRunDir) {
     const fs = await import("fs/promises");
-    await fs.writeFile(savePromptFile, prompt, "utf-8");
-    console.log(`\nPrompt saved to: ${savePromptFile}`);
+    const { join } = await import("path");
+    const fullPrompt = `===== SYSTEM PROMPT =====\n${systemPrompt}\n\n===== USER PROMPT =====\n${userPrompt}`;
+    await fs.writeFile(join(testRunDir, "prompt.md"), fullPrompt, "utf-8");
   }
 
   console.log("\nRunning evaluation agent...");
@@ -36,13 +39,14 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
   let resultText = "";
 
   for await (const message of query({
-    prompt,
+    prompt: userPrompt,
     options: {
       model: "claude-opus-4-5-20251101",
       maxTurns: 30,
       allowedTools: ["Read", "Grep", "Glob", "Bash"],
       cwd: process.cwd(),
       permissionMode: "bypassPermissions",
+      systemPrompt,
     },
   })) {
     if (message.type === "assistant") {
@@ -77,19 +81,20 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
   // The agent outputs markdown directly - use it as the review comment
   const reviewComment = resultText.trim();
 
-  if (outputFile) {
+  // Save output if test run
+  if (testRunDir) {
     const fs = await import("fs/promises");
-    await fs.writeFile(outputFile, reviewComment, "utf-8");
-    console.log(`\nEvaluation saved to: ${outputFile}`);
+    const { join } = await import("path");
+    await fs.writeFile(join(testRunDir, "output.md"), reviewComment, "utf-8");
   }
 
   let commentUrl: string | undefined;
-  if (!dryRun) {
+  if (!testRun) {
     console.log("\nPosting review comment to GitHub...");
     commentUrl = await postPRComment(prNumber, reviewComment);
     console.log(`Comment posted: ${commentUrl}`);
   } else {
-    console.log("\n--- DRY RUN: Review Comment Preview ---");
+    console.log("\n--- TEST RUN: Review Comment Preview ---");
     console.log(reviewComment);
     console.log("--- END PREVIEW ---\n");
   }

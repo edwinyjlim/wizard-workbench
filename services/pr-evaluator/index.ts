@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import "dotenv/config";
+import { mkdir } from "fs/promises";
+import { join } from "path";
 import { evaluatePR } from "./evaluator.js";
 
 function printUsage(): void {
@@ -11,32 +13,26 @@ Usage:
 
 Options:
   --pr, -p <number>       PR number to evaluate (required)
-  --dry-run               Preview comment without posting to GitHub
-  --output, -o <file>     Save evaluation to markdown file
-  --save-prompt <file>    Save the input prompt to a file (for debugging)
+  --test-run [name]       Run evaluation without posting to GitHub, saves prompt and output to test-evaluations/<name>/
   --help, -h              Show this help message
 
 Examples:
   pnpm run evaluate --pr 123
-  pnpm run evaluate --pr 123 --dry-run
-  pnpm run evaluate --pr 123 --output evaluation.md
-  pnpm run evaluate --pr 123 --save-prompt prompt.md
-  pnpm run evaluate --pr 123 -o eval.md --dry-run
+  pnpm run evaluate --pr 123 --test-run
+  pnpm run evaluate --pr 123 --test-run my-test
 `);
 }
 
 function parseArgs(args: string[]): {
   prNumber?: number;
-  dryRun: boolean;
-  outputFile?: string;
-  savePromptFile?: string;
+  testRun: boolean;
+  testRunName?: string;
   help: boolean;
 } {
   const result = {
     prNumber: undefined as number | undefined,
-    dryRun: false,
-    outputFile: undefined as string | undefined,
-    savePromptFile: undefined as string | undefined,
+    testRun: false,
+    testRunName: undefined as string | undefined,
     help: false,
   };
 
@@ -45,17 +41,19 @@ function parseArgs(args: string[]): {
 
     if (arg === "--help" || arg === "-h") {
       result.help = true;
-    } else if (arg === "--dry-run") {
-      result.dryRun = true;
+    } else if (arg === "--test-run") {
+      result.testRun = true;
+      // Check if next arg is a name (not another flag)
+      const nextArg = args[i + 1];
+      if (nextArg && !nextArg.startsWith("-")) {
+        result.testRunName = nextArg;
+        i++;
+      }
     } else if (arg === "--pr" || arg === "-p") {
       const value = args[++i];
       if (value) {
         result.prNumber = parseInt(value, 10);
       }
-    } else if (arg === "--output" || arg === "-o") {
-      result.outputFile = args[++i];
-    } else if (arg === "--save-prompt") {
-      result.savePromptFile = args[++i];
     }
   }
 
@@ -84,22 +82,33 @@ async function main(): Promise<void> {
 
   const token = process.env.GITHUB_TOKEN;
   const hasValidToken = token && !token.startsWith("ghp_...") && token.length > 10;
-  if (!hasValidToken && !args.dryRun) {
-    console.warn("Warning: GITHUB_TOKEN not set or invalid. Using --dry-run mode (comment will not be posted).");
-    args.dryRun = true;
+  if (!hasValidToken && !args.testRun) {
+    console.warn("Warning: GITHUB_TOKEN not set or invalid. Using --test-run mode (comment will not be posted).");
+    args.testRun = true;
+  }
+
+  // Create test run directory if needed
+  let testRunDir: string | undefined;
+  if (args.testRun) {
+    const dirName = args.testRunName || new Date().toISOString().replace(/[:.]/g, "-");
+    testRunDir = join("test-evaluations", dirName);
+    await mkdir(testRunDir, { recursive: true });
+    console.log(`Test run directory: ${testRunDir}`);
   }
 
   try {
     const result = await evaluatePR({
       prNumber: args.prNumber,
-      dryRun: args.dryRun,
-      outputFile: args.outputFile,
-      savePromptFile: args.savePromptFile,
+      testRun: args.testRun,
+      testRunDir,
     });
 
     console.log("\n=== Evaluation Complete ===");
     if (result.commentUrl) {
       console.log(`Comment URL: ${result.commentUrl}`);
+    }
+    if (testRunDir) {
+      console.log(`Files saved to: ${testRunDir}`);
     }
   } catch (error) {
     console.error("Error during evaluation:", error);

@@ -63,4 +63,6 @@ Check for:
 - Events enriched with relevant properties
 
 ### 5. Confidence score (score 1-5)
-A final composite score that reflects your overall assessment of the PR. Scores from sections #1–#3 should carry more weight than #4, quality of PostHog insights and event design.
+A final composite score summarizing how safe, reliable, and useful this PR is to merge. This score should heavily weight sections #1–#3, since they determine whether the integration is technically correct, stable, and functional.
+
+The App sanity check (#2) should have the strongest influence. If the app does not run, introduces regressions, or includes major structural problems, the confidence score cannot exceed the app sanity score.
