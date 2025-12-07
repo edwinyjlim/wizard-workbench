@@ -1,0 +1,42 @@
+procs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEV SERVERS - Auto-start for hot-reload development
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  examples:
+    shell: "cd ${EXAMPLES_PATH:-../examples} && npm run dev"
+    autostart: true
+    stop_signal: SIGTERM
+    env_file: .env.mprocs
+
+  mcp:
+    # Use dev:local-resources when available in MCP repo, otherwise dev
+    shell: "cd ${MCP_PATH:-../posthog/products/mcp} && pnpm run dev"
+    autostart: true
+    stop_signal: SIGTERM
+    env_file: .env.mprocs
+
+  wizard:
+    # Skip global link - just build and watch. Use wizard-run to execute.
+    shell: "cd ${WIZARD_PATH:-../wizard} && pnpm build && pnpm build:watch"
+    autostart: true
+    stop_signal: SIGTERM
+    env_file: .env.mprocs
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WIZARD RUNS - Execute wizard on test apps (press 's' to start)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  wizard-run:
+    # Run wizard from the built binary (no global install needed)
+    shell: "cd ${TEST_APP:-apps/next-js/15-app-router-saas} && node ~/development/wizard/dist/bin.js --local-mcp"
+    autostart: false
+    env_file: .env.mprocs
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # UTILITIES
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  reset-apps:
+    shell: "git checkout -- apps/"
+    autostart: false
