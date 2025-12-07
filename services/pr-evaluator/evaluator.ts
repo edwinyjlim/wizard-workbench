@@ -37,6 +37,11 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
   console.log("\nRunning evaluation agent...");
 
   let resultText = "";
+  let usageData: {
+    usage?: Record<string, number>;
+    modelUsage?: Record<string, unknown>;
+    totalCostUsd?: number;
+  } = {};
 
   for await (const message of query({
     prompt: userPrompt,
@@ -67,7 +72,16 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
     if (message.type === "result") {
       if (message.subtype === "success") {
         resultText = message.result;
+        usageData = {
+          usage: message.usage,
+          modelUsage: message.modelUsage,
+          totalCostUsd: message.total_cost_usd,
+        };
         console.log("\nAgent completed evaluation");
+        console.log(`\n--- Usage ---`);
+        console.log(`Total cost: $${usageData.totalCostUsd?.toFixed(4) ?? "N/A"}`);
+        console.log(`Input tokens: ${usageData.usage?.input_tokens ?? "N/A"}`);
+        console.log(`Output tokens: ${usageData.usage?.output_tokens ?? "N/A"}`);
       } else {
         throw new Error(`Evaluation failed: ${message.subtype}`);
       }
@@ -81,11 +95,32 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
   // The agent outputs markdown directly - use it as the review comment
   const reviewComment = resultText.trim();
 
-  // Save output if test run
+  // Save output and usage if test run
   if (testRunDir) {
     const fs = await import("fs/promises");
     const { join } = await import("path");
     await fs.writeFile(join(testRunDir, "output.md"), reviewComment, "utf-8");
+
+    // Save usage data
+    const usageContent = `# Usage Statistics
+
+## Total Cost
+$${usageData.totalCostUsd?.toFixed(4) ?? "N/A"}
+
+## Token Usage
+| Metric | Count |
+|--------|-------|
+| Input Tokens | ${usageData.usage?.input_tokens ?? "N/A"} |
+| Output Tokens | ${usageData.usage?.output_tokens ?? "N/A"} |
+| Cache Creation Input Tokens | ${usageData.usage?.cache_creation_input_tokens ?? "N/A"} |
+| Cache Read Input Tokens | ${usageData.usage?.cache_read_input_tokens ?? "N/A"} |
+
+## Model Usage
+\`\`\`json
+${JSON.stringify(usageData.modelUsage, null, 2)}
+\`\`\`
+`;
+    await fs.writeFile(join(testRunDir, "usage.md"), usageContent, "utf-8");
   }
 
   let commentUrl: string | undefined;
