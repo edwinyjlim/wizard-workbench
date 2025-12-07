@@ -48,6 +48,7 @@ postgres-data/
 # Testing
 coverage/
 test-results/
+test-evaluations/
 playwright-report/
 playwright/.cache/
 

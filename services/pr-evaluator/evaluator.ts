@@ -1,66 +1,57 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { PREvaluationSchema, type PREvaluation } from "./schemas.js";
 import { fetchPR, postPRComment } from "./github.js";
-import { buildFullPrompt, formatReviewComment } from "./prompts.js";
+import { buildSystemPrompt, buildUserPrompt } from "./prompt-builder.js";
 
 export interface EvaluateOptions {
   prNumber: number;
-  dryRun?: boolean;
-  outputFile?: string;
-  jsonFile?: string;
-  savePromptFile?: string;
+  testRun?: boolean;
+  testRunDir?: string;
 }
 
 export interface EvaluateResult {
-  evaluation: PREvaluation;
+  reviewComment: string;
   commentUrl?: string;
 }
 
-function extractJSON(text: string): unknown {
-  // Try to find JSON in code blocks
-  const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/);
-  if (jsonMatch) {
-    return JSON.parse(jsonMatch[1]);
-  }
-
-  // Try to find raw JSON object
-  const objectMatch = text.match(/\{[\s\S]*\}/);
-  if (objectMatch) {
-    return JSON.parse(objectMatch[0]);
-  }
-
-  throw new Error("No JSON found in response");
-}
-
 export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResult> {
-  const { prNumber, dryRun = false, outputFile, jsonFile, savePromptFile } = options;
+  const { prNumber, testRun = false, testRunDir } = options;
 
   console.log(`Fetching PR #${prNumber}...`);
+
   const prData = await fetchPR(prNumber);
+
   console.log(`PR: "${prData.title}" by @${prData.author}`);
   console.log(`Files changed: ${prData.files.length}`);
 
-  const prompt = buildFullPrompt(prData);
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildUserPrompt(prData);
 
-  // Save prompt if requested
-  if (savePromptFile) {
+  // Save prompt if test run
+  if (testRunDir) {
     const fs = await import("fs/promises");
-    await fs.writeFile(savePromptFile, prompt, "utf-8");
-    console.log(`\nPrompt saved to: ${savePromptFile}`);
+    const { join } = await import("path");
+    const fullPrompt = `===== SYSTEM PROMPT =====\n${systemPrompt}\n\n===== USER PROMPT =====\n${userPrompt}`;
+    await fs.writeFile(join(testRunDir, "prompt.md"), fullPrompt, "utf-8");
   }
 
   console.log("\nRunning evaluation agent...");
 
   let resultText = "";
+  let usageData: {
+    usage?: Record<string, number>;
+    modelUsage?: Record<string, unknown>;
+    totalCostUsd?: number;
+  } = {};
 
   for await (const message of query({
-    prompt,
+    prompt: userPrompt,
     options: {
       model: "claude-opus-4-5-20251101",
       maxTurns: 30,
       allowedTools: ["Read", "Grep", "Glob", "Bash"],
       cwd: process.cwd(),
       permissionMode: "bypassPermissions",
+      systemPrompt,
     },
   })) {
     if (message.type === "assistant") {
@@ -81,7 +72,16 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
     if (message.type === "result") {
       if (message.subtype === "success") {
         resultText = message.result;
+        usageData = {
+          usage: message.usage,
+          modelUsage: message.modelUsage,
+          totalCostUsd: message.total_cost_usd,
+        };
         console.log("\nAgent completed evaluation");
+        console.log(`\n--- Usage ---`);
+        console.log(`Total cost: $${usageData.totalCostUsd?.toFixed(4) ?? "N/A"}`);
+        console.log(`Input tokens: ${usageData.usage?.input_tokens ?? "N/A"}`);
+        console.log(`Output tokens: ${usageData.usage?.output_tokens ?? "N/A"}`);
       } else {
         throw new Error(`Evaluation failed: ${message.subtype}`);
       }
@@ -92,51 +92,47 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
     throw new Error("No result received from agent");
   }
 
-  // Parse the JSON from the result
-  let rawEvaluation: unknown;
-  try {
-    rawEvaluation = extractJSON(resultText);
-  } catch {
-    console.error("Failed to parse JSON from result:", resultText.substring(0, 500));
-    throw new Error("Failed to extract JSON from agent response");
-  }
+  // The agent outputs markdown directly - use it as the review comment
+  const reviewComment = resultText.trim();
 
-  // Validate against schema
-  const parseResult = PREvaluationSchema.safeParse(rawEvaluation);
-  if (!parseResult.success) {
-    console.error("Schema validation errors:", parseResult.error.errors);
-    console.error("Raw evaluation:", JSON.stringify(rawEvaluation, null, 2).substring(0, 1000));
-    throw new Error("Evaluation result does not match expected schema");
-  }
-
-  const evaluation = parseResult.data;
-  console.log(`\nOverall score: ${evaluation.overallScore}/5`);
-  console.log(`Recommendation: ${evaluation.recommendation}`);
-
-  const reviewComment = formatReviewComment(evaluation);
-
-  if (outputFile) {
+  // Save output and usage if test run
+  if (testRunDir) {
     const fs = await import("fs/promises");
-    await fs.writeFile(outputFile, reviewComment, "utf-8");
-    console.log(`\nEvaluation saved to: ${outputFile}`);
-  }
+    const { join } = await import("path");
+    await fs.writeFile(join(testRunDir, "output.md"), reviewComment, "utf-8");
 
-  if (jsonFile) {
-    const fs = await import("fs/promises");
-    await fs.writeFile(jsonFile, JSON.stringify(evaluation, null, 2), "utf-8");
-    console.log(`JSON evaluation saved to: ${jsonFile}`);
+    // Save usage data
+    const usageContent = `# Usage Statistics
+
+## Total Cost
+$${usageData.totalCostUsd?.toFixed(4) ?? "N/A"}
+
+## Token Usage
+| Metric | Count |
+|--------|-------|
+| Input Tokens | ${usageData.usage?.input_tokens ?? "N/A"} |
+| Output Tokens | ${usageData.usage?.output_tokens ?? "N/A"} |
+| Cache Creation Input Tokens | ${usageData.usage?.cache_creation_input_tokens ?? "N/A"} |
+| Cache Read Input Tokens | ${usageData.usage?.cache_read_input_tokens ?? "N/A"} |
+
+## Model Usage
+\`\`\`json
+${JSON.stringify(usageData.modelUsage, null, 2)}
+\`\`\`
+`;
+    await fs.writeFile(join(testRunDir, "usage.md"), usageContent, "utf-8");
   }
 
   let commentUrl: string | undefined;
-  if (!dryRun) {
+  if (!testRun) {
     console.log("\nPosting review comment to GitHub...");
     commentUrl = await postPRComment(prNumber, reviewComment);
     console.log(`Comment posted: ${commentUrl}`);
   } else {
-    console.log("\n--- DRY RUN: Review Comment Preview ---");
+    console.log("\n--- TEST RUN: Review Comment Preview ---");
     console.log(reviewComment);
     console.log("--- END PREVIEW ---\n");
   }
 
-  return { evaluation, commentUrl };
+  return { reviewComment, commentUrl };
 }
