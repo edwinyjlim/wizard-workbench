@@ -1,0 +1,57 @@
+procs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEV SERVERS - Auto-start for hot-reload development
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  examples:
+    # Resources manifest ZIP available at: http://localhost:8765/examples-mcp-resources.zip
+    shell: "cd ${EXAMPLES_PATH:-../examples} && npm run dev"
+    autostart: true
+    stop_signal: SIGTERM
+    env_file: .env
+
+  mcp:
+    # Use dev:local-resources to read from local examples server (localhost:8765)
+    shell: "cd ${MCP_PATH:-../posthog/products/mcp} && pnpm run dev:local-resources"
+    autostart: true
+    stop_signal: SIGTERM
+    env_file: .env
+
+  mcp-inspector:
+    # Opens MCP Inspector UI at http://localhost:6274
+    shell: "cd ${MCP_PATH:-../posthog/products/mcp} && pnpm run inspector"
+    autostart: true
+    env_file: .env
+
+  wizard:
+    # Skip global link - just build and watch. Use wizard-run to execute.
+    shell: "cd ${WIZARD_PATH:-../wizard} && pnpm build && pnpm build:watch"
+    autostart: true
+    stop_signal: SIGTERM
+    env_file: .env
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WIZARD RUNS - Execute wizard on test apps (press 's' to start)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  wizard-run:
+    # Run wizard from the built binary (no global install needed)
+    shell: "cd ${TEST_APP:-apps/next-js/15-app-router-saas} && node ~/development/wizard/dist/bin.js --local-mcp --debug"
+    autostart: false
+    env_file: .env
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EVALUATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  workbench-evaluate:
+    # Set PR_NUMBER in .env before running
+    shell: |
+      if [ -z "$PR_NUMBER" ]; then
+        echo "ERROR: Set PR_NUMBER in .env first"
+        exit 1
+      fi
+      pnpm run evaluate --pr $PR_NUMBER
+    autostart: false
+    env_file: .env
+

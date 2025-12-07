@@ -1,9 +1,9 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { fetchPR, postPRComment } from "./github.js";
+import { postPRComment, type PRData } from "./github.js";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt-builder.js";
 
 export interface EvaluateOptions {
-  prNumber: number;
+  prData: PRData;
   testRun?: boolean;
   testRunDir?: string;
 }
@@ -14,14 +14,7 @@ export interface EvaluateResult {
 }
 
 export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResult> {
-  const { prNumber, testRun = false, testRunDir } = options;
-
-  console.log(`Fetching PR #${prNumber}...`);
-
-  const prData = await fetchPR(prNumber);
-
-  console.log(`PR: "${prData.title}" by @${prData.author}`);
-  console.log(`Files changed: ${prData.files.length}`);
+  const { prData, testRun = false, testRunDir } = options;
 
   const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(prData);
@@ -124,9 +117,9 @@ ${JSON.stringify(usageData.modelUsage, null, 2)}
   }
 
   let commentUrl: string | undefined;
-  if (!testRun) {
+  if (!testRun && prData.number > 0) {
     console.log("\nPosting review comment to GitHub...");
-    commentUrl = await postPRComment(prNumber, reviewComment);
+    commentUrl = await postPRComment(prData.number, reviewComment);
     console.log(`Comment posted: ${commentUrl}`);
   } else {
     console.log("\n--- TEST RUN: Review Comment Preview ---");
