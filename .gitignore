@@ -36,7 +36,6 @@ dist-ssr/
 **/.env
 **/.env.local
 !.env.example
-!.env.mprocs.example
 
 # Database
 *.db
