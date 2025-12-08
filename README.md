@@ -36,9 +36,9 @@ services/
 
 The workbench can run the entire Wizard stack in local development mode, with hot reload where supported. It uses `mprocs` to run all the repos defined in your `.env` file:
 
-- Examples repo
-- Wizard repo
-- MCP repo (within PostHog monorepo)
+- [Examples repo](https://github.com/PostHog/examples)
+- [Wizard repo](https://github.com/PostHog/wizard)
+- [MCP repo](https://github.com/PostHog/posthog/tree/master/products/mcp) (within PostHog monorepo)
 
 ![local dev stack](https://res.cloudinary.com/dmukukwp6/image/upload/q_auto,f_auto/wizard_workbench_local_dev_760610ecfb.png)
 
