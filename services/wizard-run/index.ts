@@ -120,7 +120,7 @@ async function main(): Promise<void> {
 
   // Spawn the wizard process with --local-mcp to use the local MCP server
   // and --debug for verbose output. Modify flags here to change wizard behavior.
-  const child = spawn("node", [WIZARD_BIN, "--local-mcp", "--debug"], {
+  const child = spawn("node", [WIZARD_BIN, "--local-mcp"], {
     cwd: selectedApp.path,
     stdio: "inherit",
     env: process.env,

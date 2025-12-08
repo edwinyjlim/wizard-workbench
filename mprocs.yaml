@@ -41,6 +41,12 @@ procs:
     autostart: false
     env_file: .env
 
+  tail-wizard-run:
+    # Tail the wizard's verbose output
+    shell: "tail -f /tmp/posthog-wizard.log"
+    autostart: false
+    env_file: .env
+
   # ═══════════════════════════════════════════════════════════════════════════
   # EVALUATION
   # ═══════════════════════════════════════════════════════════════════════════
