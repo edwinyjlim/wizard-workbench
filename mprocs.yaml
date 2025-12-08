@@ -35,8 +35,8 @@ procs:
   # ═══════════════════════════════════════════════════════════════════════════
 
   wizard-run:
-    # Run wizard from the built binary (no global install needed)
-    shell: "cd ${TEST_APP:-apps/next-js/15-app-router-saas} && node ~/development/wizard/dist/bin.js --local-mcp --debug"
+    # Interactive app selector - choose which app to run wizard on
+    shell: "npx tsx services/wizard-run/index.ts"
     autostart: false
     env_file: .env
 
