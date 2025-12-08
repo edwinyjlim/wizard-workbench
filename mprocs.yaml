@@ -11,7 +11,8 @@ procs:
     env_file: .env
 
   mcp:
-    # Use dev:local-resources to read from local examples server (localhost:8765)
+    # Use dev:local-resources to read from local examples server 
+    # Runs at http://localhost:8787
     shell: "cd ${MCP_PATH:-../posthog/products/mcp} && pnpm run dev:local-resources"
     autostart: true
     stop_signal: SIGTERM
@@ -45,13 +46,7 @@ procs:
   # ═══════════════════════════════════════════════════════════════════════════
 
   workbench-evaluate:
-    # Set PR_NUMBER in .env before running
-    shell: |
-      if [ -z "$PR_NUMBER" ]; then
-        echo "ERROR: Set PR_NUMBER in .env first"
-        exit 1
-      fi
-      pnpm run evaluate --pr $PR_NUMBER
+    shell: "pnpm run evaluate --test-run"
     autostart: false
     env_file: .env
 
