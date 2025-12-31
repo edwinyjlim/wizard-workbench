@@ -26,6 +26,12 @@ export function hasChanges(cwd: string): boolean {
   return status !== null && status.length > 0;
 }
 
+export function getChangedFiles(cwd: string): string[] {
+  const status = gitSafe("status --porcelain", cwd);
+  if (!status) return [];
+  return status.split("\n").filter((line) => line.length > 0);
+}
+
 export function resetApp(appPath: string): void {
   git("restore .", appPath);
 }

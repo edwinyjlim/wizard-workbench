@@ -15,6 +15,7 @@ import {
   findApps,
   resetApp,
   hasChanges,
+  getChangedFiles,
   runWizard,
   createBranch,
   commitAll,
@@ -106,13 +107,23 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
 
   // 1. Reset (with confirmation)
   console.log("[1/5] Reset app to clean state");
-  console.log(`      Path: ${app.path}`);
-  console.log(`      WARNING: This will discard all uncommitted changes in this app.\n`);
+  console.log(`      Path: ${app.path}\n`);
 
-  const confirm = await prompt("      Proceed with git restore? (y/n): ");
-  if (confirm.toLowerCase() !== "y") {
-    console.log("      Skipped\n");
-    return false;
+  const changedFiles = getChangedFiles(app.path);
+  if (changedFiles.length > 0) {
+    console.log(`      WARNING: This will discard ${changedFiles.length} uncommitted change(s):\n`);
+    for (const file of changedFiles) {
+      console.log(`        ${file}`);
+    }
+    console.log();
+
+    const confirm = await prompt("      Proceed with git restore? (y/n): ");
+    if (confirm.toLowerCase() !== "y") {
+      console.log("      Skipped\n");
+      return false;
+    }
+  } else {
+    console.log("      No uncommitted changes found\n");
   }
 
   try {
