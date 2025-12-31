@@ -38,7 +38,7 @@ The workbench can run the entire Wizard stack in local development mode, with ho
 
 - [Examples repo](https://github.com/PostHog/examples)
 - [Wizard repo](https://github.com/PostHog/wizard)
-- [MCP repo](https://github.com/PostHog/posthog/tree/master/products/mcp) (within PostHog monorepo)
+- [MCP repo](https://github.com/PostHog/posthog/tree/master/services/mcp) (within PostHog monorepo)
 
 ![local dev stack](https://res.cloudinary.com/dmukukwp6/image/upload/q_auto,f_auto/wizard_workbench_local_dev_760610ecfb.png)
 
@@ -67,7 +67,7 @@ ANTHROPIC_API_KEY=sk-ant-...   # Required for wizard PR evaluator
 
 # Adjust if your repos are in different locations
 EXAMPLES_PATH=~/development/examples
-MCP_PATH=~/development/posthog/products/mcp
+MCP_PATH=~/development/posthog/services/mcp
 WIZARD_PATH=~/development/wizard
 ```
 
