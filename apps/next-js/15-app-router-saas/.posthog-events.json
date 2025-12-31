@@ -1,0 +1,72 @@
+[
+  {
+    "eventName": "user_signed_up",
+    "eventDescription": "User successfully created a new account",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "user_signed_in",
+    "eventDescription": "User successfully logged in to their account",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "user_signed_out",
+    "eventDescription": "User logged out of their account",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "checkout_started",
+    "eventDescription": "User initiated the checkout process for a subscription plan",
+    "filePath": "lib/payments/actions.ts"
+  },
+  {
+    "eventName": "checkout_completed",
+    "eventDescription": "User successfully completed subscription checkout",
+    "filePath": "app/api/stripe/checkout/route.ts"
+  },
+  {
+    "eventName": "checkout_error",
+    "eventDescription": "An error occurred during the checkout process",
+    "filePath": "app/api/stripe/checkout/route.ts"
+  },
+  {
+    "eventName": "subscription_updated",
+    "eventDescription": "User's subscription was updated (upgrade, downgrade, or renewal)",
+    "filePath": "app/api/stripe/webhook/route.ts"
+  },
+  {
+    "eventName": "subscription_cancelled",
+    "eventDescription": "User's subscription was cancelled",
+    "filePath": "app/api/stripe/webhook/route.ts"
+  },
+  {
+    "eventName": "password_updated",
+    "eventDescription": "User changed their password",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "account_deleted",
+    "eventDescription": "User deleted their account (churn event)",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "account_updated",
+    "eventDescription": "User updated their account information",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "team_member_invited",
+    "eventDescription": "User invited a new team member",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "team_member_removed",
+    "eventDescription": "User removed a team member",
+    "filePath": "app/(login)/actions.ts"
+  },
+  {
+    "eventName": "invitation_accepted",
+    "eventDescription": "A team member accepted an invitation to join",
+    "filePath": "app/(login)/actions.ts"
+  }
+]
