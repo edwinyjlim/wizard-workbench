@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "evaluate": "tsx services/pr-evaluator/index.ts"
+    "evaluate": "tsx services/pr-evaluator/index.ts",
+    "wizard-test": "tsx services/wizard-test/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
