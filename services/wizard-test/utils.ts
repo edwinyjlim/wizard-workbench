@@ -118,7 +118,10 @@ export interface WizardResult {
   error?: string;
 }
 
-export function runWizard(appPath: string, timeoutMs: number = 300000): Promise<WizardResult> {
+/**
+ * Run wizard on an app - spawns with inherited stdio for full interactivity
+ */
+export function runWizard(appPath: string): Promise<WizardResult> {
   const wizardBin = getWizardBin();
   const start = Date.now();
 
@@ -131,18 +134,14 @@ export function runWizard(appPath: string, timeoutMs: number = 300000): Promise<
   }
 
   return new Promise((resolve) => {
+    // Spawn exactly like wizard-run does - full stdio inherit for interactivity
     const child = spawn("node", [wizardBin, "--local-mcp"], {
       cwd: appPath,
-      env: process.env,
       stdio: "inherit",
+      env: process.env,
     });
 
-    const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-    }, timeoutMs);
-
     child.on("close", (code) => {
-      clearTimeout(timeout);
       resolve({
         success: code === 0,
         duration: Date.now() - start,
@@ -151,7 +150,6 @@ export function runWizard(appPath: string, timeoutMs: number = 300000): Promise<
     });
 
     child.on("error", (err) => {
-      clearTimeout(timeout);
       resolve({
         success: false,
         duration: Date.now() - start,
