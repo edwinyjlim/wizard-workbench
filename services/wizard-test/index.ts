@@ -104,8 +104,17 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   console.log(`Testing: ${app.name}`);
   console.log(`${"─".repeat(50)}\n`);
 
-  // 1. Reset
-  console.log("[1/5] Resetting app...");
+  // 1. Reset (with confirmation)
+  console.log("[1/5] Reset app to clean state");
+  console.log(`      Path: ${app.path}`);
+  console.log(`      WARNING: This will discard all uncommitted changes in this app.\n`);
+
+  const confirm = await prompt("      Proceed with git restore? (y/n): ");
+  if (confirm.toLowerCase() !== "y") {
+    console.log("      Skipped\n");
+    return false;
+  }
+
   try {
     resetApp(app.path);
     console.log("      Done\n");
