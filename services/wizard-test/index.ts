@@ -24,6 +24,7 @@ import {
   checkout,
   getCurrentBranch,
   getRepoRoot,
+  getRemoteUrl,
   formatMs,
   timestamp,
   type App,
@@ -41,6 +42,7 @@ interface Options {
   all: boolean;
   local: boolean;
   base: string;
+  remote: string;
 }
 
 // ============================================================================
@@ -49,7 +51,7 @@ interface Options {
 
 function parseArgs(): Options {
   const args = process.argv.slice(2);
-  const opts: Options = { all: false, local: false, base: "main" };
+  const opts: Options = { all: false, local: false, base: "main", remote: "origin" };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -57,6 +59,7 @@ function parseArgs(): Options {
     else if (arg === "--all") opts.all = true;
     else if (arg === "--local" || arg === "-l") opts.local = true;
     else if (arg === "--base") opts.base = args[++i];
+    else if (arg === "--remote" || arg === "-r") opts.remote = args[++i];
     else if (arg === "--help" || arg === "-h") {
       console.log(`
 wizard-test: Run wizard on test apps and create PRs
@@ -67,6 +70,7 @@ Usage:
   pnpm wizard-test --all               Test all apps
   pnpm wizard-test --local             Skip PR creation
   pnpm wizard-test --base <branch>     Base branch for PR (default: main)
+  pnpm wizard-test --remote <name>     Git remote to push to (default: origin)
 `);
       process.exit(0);
     }
@@ -178,8 +182,11 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
 
   // 5. Push and create PR
   console.log("[5/5] Pushing and creating PR...");
+  const remoteUrl = getRemoteUrl(repoRoot, opts.remote);
+  console.log(`      Remote: ${opts.remote} (${remoteUrl})`);
+
   try {
-    push(repoRoot, branchName);
+    push(repoRoot, branchName, opts.remote);
     const prUrl = createPR(
       repoRoot,
       `[Wizard Test] ${app.name}`,

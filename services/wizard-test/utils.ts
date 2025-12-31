@@ -46,8 +46,12 @@ export function commitAll(cwd: string, message: string): string {
   return git("rev-parse --short HEAD", cwd);
 }
 
-export function push(cwd: string, branch: string): void {
-  git(`push -u origin "${branch}"`, cwd);
+export function getRemoteUrl(cwd: string, remote: string = "origin"): string | null {
+  return gitSafe(`remote get-url ${remote}`, cwd);
+}
+
+export function push(cwd: string, branch: string, remote: string = "origin"): void {
+  git(`push -u ${remote} "${branch}"`, cwd);
 }
 
 export function checkout(cwd: string, branch: string): void {
