@@ -1,0 +1,67 @@
+[
+  {
+    "event": "user_signed_up",
+    "description": "User completes the sign-up form and creates a new account",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "user_signed_in",
+    "description": "User successfully logs in to their account",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "user_signed_out",
+    "description": "User signs out of their account",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "password_updated",
+    "description": "User successfully updates their password",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "account_deleted",
+    "description": "User permanently deletes their account (churn event)",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "account_updated",
+    "description": "User updates their account information (name/email)",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "team_member_invited",
+    "description": "Owner invites a new team member via email",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "team_member_removed",
+    "description": "Owner removes a team member from the team",
+    "file": "app/(login)/actions.ts"
+  },
+  {
+    "event": "checkout_started",
+    "description": "User initiates checkout process for a pricing plan (conversion funnel)",
+    "file": "lib/payments/actions.ts"
+  },
+  {
+    "event": "checkout_completed",
+    "description": "User completes checkout and subscription is created (conversion event)",
+    "file": "app/api/stripe/checkout/route.ts"
+  },
+  {
+    "event": "subscription_updated",
+    "description": "User's subscription status changes (upgrade/downgrade)",
+    "file": "app/api/stripe/webhook/route.ts"
+  },
+  {
+    "event": "subscription_cancelled",
+    "description": "User's subscription is cancelled (churn event)",
+    "file": "app/api/stripe/webhook/route.ts"
+  },
+  {
+    "event": "customer_portal_opened",
+    "description": "User opens the Stripe customer portal to manage subscription",
+    "file": "lib/payments/actions.ts"
+  }
+]
