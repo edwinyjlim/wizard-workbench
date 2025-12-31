@@ -43,6 +43,20 @@ procs:
     autostart: false
 
   # ═══════════════════════════════════════════════════════════════════════════
+  # WIZARD TEST - Run wizard and optionally create PR
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  wizard-test:
+    shell: "pnpm wizard-test"
+    autostart: false
+    env_file: .env
+
+  wizard-test-local:
+    shell: "pnpm wizard-test --local"
+    autostart: false
+    env_file: .env
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # EVALUATION
   # ═══════════════════════════════════════════════════════════════════════════
 
