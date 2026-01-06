@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getTodoById, updateTodo, deleteTodo } from '@/lib/data';
+import { getPostHogClient } from '@/lib/posthog-server';
 import { z } from 'zod';
 
 const updateTodoSchema = z.object({
@@ -30,6 +31,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json(todo);
     } catch (error) {
       console.error('Error fetching todo:', error);
+      // Track server-side error
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: 'server',
+        event: 'api_server_error',
+        properties: {
+          endpoint: `/api/todos/${todoId}`,
+          method: 'GET',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
       return res.status(500).json({ error: 'Failed to fetch todo' });
     }
   }
@@ -46,13 +58,34 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
       return res.status(200).json(updatedTodo);
     } catch (error) {
+      const posthog = getPostHogClient();
       if (error instanceof z.ZodError) {
+        // Track validation error
+        posthog.capture({
+          distinctId: 'server',
+          event: 'api_validation_error',
+          properties: {
+            endpoint: `/api/todos/${todoId}`,
+            method: 'PATCH',
+            validation_errors: error.errors,
+          },
+        });
         return res.status(400).json({
           error: 'Invalid todo data',
           details: error.errors,
         });
       }
       console.error('Error updating todo:', error);
+      // Track server-side error
+      posthog.capture({
+        distinctId: 'server',
+        event: 'api_server_error',
+        properties: {
+          endpoint: `/api/todos/${todoId}`,
+          method: 'PATCH',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
       return res.status(500).json({ error: 'Failed to update todo' });
     }
   }
@@ -68,6 +101,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ message: 'Todo deleted successfully' });
     } catch (error) {
       console.error('Error deleting todo:', error);
+      // Track server-side error
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: 'server',
+        event: 'api_server_error',
+        properties: {
+          endpoint: `/api/todos/${todoId}`,
+          method: 'DELETE',
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+      });
       return res.status(500).json({ error: 'Failed to delete todo' });
     }
   }

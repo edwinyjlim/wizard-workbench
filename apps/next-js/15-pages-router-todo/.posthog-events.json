@@ -1,0 +1,52 @@
+[
+  {
+    "event_name": "todo_created",
+    "event_description": "User successfully creates a new todo item",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "todo_completed",
+    "event_description": "User marks a todo item as completed",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "todo_uncompleted",
+    "event_description": "User marks a completed todo item as incomplete",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "todo_deleted",
+    "event_description": "User deletes a todo item",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "todo_create_failed",
+    "event_description": "Error occurred while creating a todo item",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "todo_update_failed",
+    "event_description": "Error occurred while updating a todo item",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "todo_delete_failed",
+    "event_description": "Error occurred while deleting a todo item",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "todos_fetch_failed",
+    "event_description": "Error occurred while loading the todo list",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event_name": "api_validation_error",
+    "event_description": "API received invalid data from client",
+    "file_path": "pages/api/todos/index.ts"
+  },
+  {
+    "event_name": "api_server_error",
+    "event_description": "Server-side error occurred in API handler",
+    "file_path": "pages/api/todos/[id].ts"
+  }
+]
