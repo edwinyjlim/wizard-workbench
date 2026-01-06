@@ -299,3 +299,48 @@ export function formatMs(ms: number): string {
 export function timestamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 }
+
+// ============================================================================
+// PR Evaluation
+// ============================================================================
+
+/**
+ * Extract PR number from GitHub PR URL
+ * e.g., "https://github.com/owner/repo/pull/123" -> 123
+ */
+export function extractPRNumber(prUrl: string): number | null {
+  const match = prUrl.match(/\/pull\/(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+export interface EvaluateResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Run pr-evaluator on a PR
+ */
+export function runEvaluator(prNumber: number): Promise<EvaluateResult> {
+  return new Promise((resolve) => {
+    const child = spawn("pnpm", ["run", "evaluate", "--pr", String(prNumber)], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+      env: process.env,
+    });
+
+    child.on("close", (code) => {
+      resolve({
+        success: code === 0,
+        error: code !== 0 ? `Exit code: ${code}` : undefined,
+      });
+    });
+
+    child.on("error", (err) => {
+      resolve({
+        success: false,
+        error: err.message,
+      });
+    });
+  });
+}

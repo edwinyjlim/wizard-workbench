@@ -58,7 +58,13 @@ procs:
 
   wizard-test-push:
     # Push current branch and create PR (skip reset/wizard steps)
-    shell: "pnpm wizard-test --push-only --branch wizard-test/next-js-15-app-router-saas/2025-12-31T21-17-58"
+    shell: "pnpm wizard-test --push-only --branch testing-wizard-ci"
+    autostart: false
+    env_file: .env
+
+  wizard-test-push-and-evaluate:
+    # Run wizard, create PR, then run pr-evaluator
+    shell: "pnpm wizard-test --push-only --branch testing-wizard-ci --evaluate"
     autostart: false
     env_file: .env
 
@@ -67,7 +73,7 @@ procs:
   # ═══════════════════════════════════════════════════════════════════════════
 
   workbench-evaluate:
-    shell: "pnpm run evaluate --test-run"
+    shell: "pnpm run evaluate"
     autostart: false
     env_file: .env
 
