@@ -1,5 +1,22 @@
-import { execSync } from "child_process";
-import type { PRData, PRFile } from "./github.js";
+/**
+ * Local branch utilities for pr-evaluator
+ *
+ * Fetches PR-like data from a local git branch for evaluation.
+ * Uses the shared github service for generic git operations.
+ */
+import type { PRData, PRFile } from "../github/index.js";
+import {
+  branchExists,
+  getCurrentBranch,
+  getMergeBase,
+  getDiff,
+  getDiffNumstat,
+  getDiffNameStatus,
+  getFileDiff,
+  getCommitAuthor,
+  getFirstCommitMessage,
+  getCommitMessages,
+} from "../github/index.js";
 
 export interface LocalBranchOptions {
   branch: string;
@@ -7,25 +24,14 @@ export interface LocalBranchOptions {
   cwd?: string; // defaults to process.cwd()
 }
 
-function branchExists(branch: string, cwd: string): boolean {
-  try {
-    execSync(`git rev-parse --verify ${branch}`, { cwd, encoding: "utf-8", stdio: "pipe" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function fetchLocalBranch(options: LocalBranchOptions): Promise<PRData> {
   const { branch, baseBranch = "main", cwd = process.cwd() } = options;
-
-  const execOpts = { cwd, encoding: "utf-8" as const };
 
   // Get the current branch if "HEAD" is specified
   let actualBranch: string;
   if (branch === "HEAD") {
     try {
-      actualBranch = execSync("git rev-parse --abbrev-ref HEAD", execOpts).trim();
+      actualBranch = getCurrentBranch(cwd);
     } catch {
       throw new Error("Not in a git repository or unable to determine current branch");
     }
@@ -34,72 +40,53 @@ export async function fetchLocalBranch(options: LocalBranchOptions): Promise<PRD
   }
 
   // Validate that the branch exists
-  if (!branchExists(actualBranch, cwd)) {
+  if (!branchExists(cwd, actualBranch)) {
     throw new Error(`Branch "${actualBranch}" does not exist. Check the branch name and try again.`);
   }
 
   // Validate that the base branch exists
-  if (!branchExists(baseBranch, cwd)) {
+  if (!branchExists(cwd, baseBranch)) {
     throw new Error(`Base branch "${baseBranch}" does not exist. Use --base to specify a different base branch.`);
   }
 
   // Get the merge base (common ancestor)
   let mergeBase: string;
   try {
-    mergeBase = execSync(`git merge-base ${baseBranch} ${actualBranch}`, execOpts).trim();
+    mergeBase = getMergeBase(cwd, baseBranch, actualBranch);
   } catch {
     throw new Error(
       `Cannot find common ancestor between "${baseBranch}" and "${actualBranch}". ` +
-      `Make sure the branches share history.`
+        `Make sure the branches share history.`
     );
   }
 
   // Get diff
-  const diff = execSync(`git diff ${mergeBase}...${actualBranch}`, execOpts);
+  const diff = getDiff(cwd, mergeBase, actualBranch);
 
   // Get file stats using diff --stat
-  const diffStat = execSync(`git diff --numstat ${mergeBase}...${actualBranch}`, execOpts);
+  const diffStat = getDiffNumstat(cwd, mergeBase, actualBranch);
 
   // Get file statuses
-  const diffNameStatus = execSync(`git diff --name-status ${mergeBase}...${actualBranch}`, execOpts);
+  const diffNameStatus = getDiffNameStatus(cwd, mergeBase, actualBranch);
 
   // Parse file information
   const files = parseGitFiles(diffStat, diffNameStatus, mergeBase, actualBranch, cwd);
 
   // Try to get author from the most recent commit on the branch
-  let author = "local";
-  try {
-    author = execSync(`git log -1 --format=%an ${actualBranch}`, execOpts).trim();
-  } catch {
-    // Ignore errors, use default
-  }
+  const author = getCommitAuthor(cwd, actualBranch) || "local";
 
   // Try to get a title from the first commit message after the merge base
   let title = `Local branch: ${actualBranch}`;
-  try {
-    const firstCommitMsg = execSync(
-      `git log --format=%s ${mergeBase}..${actualBranch} --reverse | head -1`,
-      execOpts
-    ).trim();
-    if (firstCommitMsg) {
-      title = firstCommitMsg;
-    }
-  } catch {
-    // Ignore errors, use default
+  const firstCommitMsg = getFirstCommitMessage(cwd, mergeBase, actualBranch);
+  if (firstCommitMsg) {
+    title = firstCommitMsg;
   }
 
   // Try to get description from commit messages
   let description = "";
-  try {
-    const commitMessages = execSync(
-      `git log --format="- %s" ${mergeBase}..${actualBranch}`,
-      execOpts
-    ).trim();
-    if (commitMessages) {
-      description = `Commits:\n${commitMessages}`;
-    }
-  } catch {
-    // Ignore errors
+  const commitMessages = getCommitMessages(cwd, mergeBase, actualBranch);
+  if (commitMessages) {
+    description = `Commits:\n${commitMessages}`;
   }
 
   return {
@@ -161,15 +148,7 @@ function parseGitFiles(
     const stats = statsMap.get(filename) || { additions: 0, deletions: 0 };
 
     // Get the patch for this file
-    let patch: string | undefined;
-    try {
-      patch = execSync(`git diff ${mergeBase}...${branch} -- "${filename}"`, {
-        cwd,
-        encoding: "utf-8",
-      });
-    } catch {
-      // Ignore errors
-    }
+    const patch = getFileDiff(cwd, mergeBase, branch, filename) || undefined;
 
     files.push({
       filename,
