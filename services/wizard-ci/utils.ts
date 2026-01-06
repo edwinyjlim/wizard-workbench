@@ -1,227 +1,66 @@
 /**
  * Reusable utilities for wizard testing
+ *
+ * Git and GitHub operations are imported from the shared github service.
+ * This file contains only wizard-ci specific utilities.
  */
-import { execSync, spawn } from "child_process";
-import { existsSync, readdirSync, statSync } from "fs";
+import { spawn } from "child_process";
+import { existsSync, readdirSync } from "fs";
 import { join } from "path";
 
+// Re-export git operations from shared service
+export {
+  git,
+  gitSafe,
+  hasChanges,
+  getChangedFiles,
+  getChangedFilesInPath,
+  hasChangesInPath,
+  createBranch,
+  commitAll,
+  commitPath,
+  getRemoteUrl,
+  push,
+  checkout,
+  getCurrentBranch,
+  getRepoRoot,
+  deleteBranch,
+  listBranches,
+  branchExists,
+  restoreWorkingDirectory,
+} from "../github/index.js";
+
+// Re-export GitHub CLI operations from shared service
+export {
+  createPR,
+  extractPRNumber,
+  type CreatePROptions,
+} from "../github/index.js";
+
+// Re-export high-level operations from shared service
+export {
+  pushAndCreatePR,
+  switchOrCreateBranch,
+  deleteBranches,
+  type PushAndPROptions,
+  type PushAndPRResult,
+  type SwitchOrCreateBranchOptions,
+  type SwitchOrCreateBranchResult,
+  type DeleteBranchesResult,
+} from "../github/index.js";
+
 // ============================================================================
-// Git utilities
+// App-specific git operations
 // ============================================================================
 
-export function git(cmd: string, cwd: string): string {
-  return execSync(`git ${cmd}`, { cwd, encoding: "utf-8", stdio: "pipe" }).trim();
-}
-
-export function gitSafe(cmd: string, cwd: string): string | null {
-  try {
-    return git(cmd, cwd);
-  } catch {
-    return null;
-  }
-}
-
-export function hasChanges(cwd: string): boolean {
-  const status = gitSafe("status --porcelain", cwd);
-  return status !== null && status.length > 0;
-}
-
-export function getChangedFiles(cwd: string): string[] {
-  const status = gitSafe("status --porcelain", cwd);
-  if (!status) return [];
-  return status.split("\n").filter((line) => line.length > 0);
-}
+import { restoreWorkingDirectory } from "../github/index.js";
 
 /**
- * Get changed files within a specific path (relative to repo root).
- * Use this to scope git status to a subdirectory.
+ * Reset an app directory to HEAD state (discard all changes).
+ * Convenience wrapper around restoreWorkingDirectory for app paths.
  */
-export function getChangedFilesInPath(repoRoot: string, relativePath: string): string[] {
-  const status = gitSafe(`status --porcelain -- "${relativePath}"`, repoRoot);
-  if (!status) return [];
-  return status.split("\n").filter((line) => line.length > 0);
-}
-
-/**
- * Check if there are changes within a specific path.
- */
-export function hasChangesInPath(repoRoot: string, relativePath: string): boolean {
-  const files = getChangedFilesInPath(repoRoot, relativePath);
-  return files.length > 0;
-}
-
 export function resetApp(appPath: string): void {
-  git("restore .", appPath);
-}
-
-export function createBranch(cwd: string, name: string): void {
-  git(`checkout -b "${name}"`, cwd);
-}
-
-export function commitAll(cwd: string, message: string): string {
-  git("add -A", cwd);
-  git(`commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
-  return git("rev-parse --short HEAD", cwd);
-}
-
-/**
- * Add and commit only files within a specific path.
- */
-export function commitPath(repoRoot: string, relativePath: string, message: string): string {
-  git(`add "${relativePath}"`, repoRoot);
-  git(`commit -m "${message.replace(/"/g, '\\"')}"`, repoRoot);
-  return git("rev-parse --short HEAD", repoRoot);
-}
-
-export function getRemoteUrl(cwd: string, remote: string = "origin"): string | null {
-  return gitSafe(`remote get-url ${remote}`, cwd);
-}
-
-export function push(cwd: string, branch: string, remote: string = "origin"): void {
-  git(`push -u ${remote} "${branch}"`, cwd);
-}
-
-export function checkout(cwd: string, branch: string): void {
-  git(`checkout "${branch}"`, cwd);
-}
-
-export function getCurrentBranch(cwd: string): string {
-  return git("branch --show-current", cwd);
-}
-
-export function getRepoRoot(cwd: string): string {
-  return git("rev-parse --show-toplevel", cwd);
-}
-
-export function deleteBranch(cwd: string, branch: string): void {
-  git(`branch -D "${branch}"`, cwd);
-}
-
-export function listBranches(cwd: string, pattern?: string): string[] {
-  const cmd = pattern ? `branch --list "${pattern}"` : "branch --list";
-  const result = gitSafe(cmd, cwd);
-  if (!result) return [];
-  return result
-    .split("\n")
-    .map((line) => line.replace(/^\*?\s+/, "").trim())
-    .filter((line) => line.length > 0);
-}
-
-export function branchExists(cwd: string, branch: string): boolean {
-  const result = gitSafe(`rev-parse --verify "${branch}"`, cwd);
-  return result !== null;
-}
-
-// ============================================================================
-// GitHub CLI utilities
-// ============================================================================
-
-export function createPR(cwd: string, title: string, body: string, base: string): string {
-  // Escape quotes and backticks for shell
-  const escapeForShell = (str: string) => str.replace(/"/g, '\\"').replace(/`/g, "\\`");
-  const result = execSync(
-    `gh pr create --title "${escapeForShell(title)}" --body "${escapeForShell(body)}" --base "${base}"`,
-    { cwd, encoding: "utf-8", stdio: "pipe" }
-  );
-  return result.trim();
-}
-
-// ============================================================================
-// High-level branch operations
-// ============================================================================
-
-export interface PushAndPROptions {
-  repoRoot: string;
-  branch: string;
-  remote: string;
-  base: string;
-  title: string;
-  body: string;
-  deleteBranchAfter: boolean;
-  returnToBranch?: string;
-}
-
-export interface PushAndPRResult {
-  success: boolean;
-  prUrl?: string;
-  error?: string;
-}
-
-/**
- * Push a branch and create a PR. Optionally delete local branch after.
- */
-export function pushAndCreatePR(opts: PushAndPROptions): PushAndPRResult {
-  const { repoRoot, branch, remote, base, title, body, deleteBranchAfter, returnToBranch } = opts;
-
-  try {
-    push(repoRoot, branch, remote);
-  } catch (e) {
-    return { success: false, error: `Failed to push: ${e}` };
-  }
-
-  let prUrl: string;
-  try {
-    prUrl = createPR(repoRoot, title, body, base);
-  } catch (e) {
-    return { success: false, error: `Failed to create PR: ${e}` };
-  }
-
-  if (deleteBranchAfter && returnToBranch) {
-    checkout(repoRoot, returnToBranch);
-    try {
-      deleteBranch(repoRoot, branch);
-    } catch {
-      // Ignore delete errors - PR was created successfully
-    }
-  }
-
-  return { success: true, prUrl };
-}
-
-export interface SwitchOrCreateBranchOptions {
-  repoRoot: string;
-  branchName?: string;
-  generateName: () => string;
-}
-
-export interface SwitchOrCreateBranchResult {
-  branch: string;
-  created: boolean;
-}
-
-/**
- * Switch to an existing branch or create a new one.
- */
-export function switchOrCreateBranch(opts: SwitchOrCreateBranchOptions): SwitchOrCreateBranchResult {
-  const { repoRoot, branchName, generateName } = opts;
-
-  if (branchName && branchExists(repoRoot, branchName)) {
-    checkout(repoRoot, branchName);
-    return { branch: branchName, created: false };
-  }
-
-  const newBranch = branchName || generateName();
-  createBranch(repoRoot, newBranch);
-  return { branch: newBranch, created: true };
-}
-
-/**
- * Delete multiple branches, returning count of deleted.
- */
-export function deleteBranches(repoRoot: string, branches: string[]): { deleted: number; failed: string[] } {
-  let deleted = 0;
-  const failed: string[] = [];
-
-  for (const branch of branches) {
-    try {
-      deleteBranch(repoRoot, branch);
-      deleted++;
-    } catch {
-      failed.push(branch);
-    }
-  }
-
-  return { deleted, failed };
+  restoreWorkingDirectory(".", appPath);
 }
 
 // ============================================================================
@@ -334,15 +173,6 @@ export function shortId(): string {
 // ============================================================================
 // PR Evaluation
 // ============================================================================
-
-/**
- * Extract PR number from GitHub PR URL
- * e.g., "https://github.com/owner/repo/pull/123" -> 123
- */
-export function extractPRNumber(prUrl: string): number | null {
-  const match = prUrl.match(/\/pull\/(\d+)/);
-  return match ? parseInt(match[1], 10) : null;
-}
 
 export interface EvaluateResult {
   success: boolean;

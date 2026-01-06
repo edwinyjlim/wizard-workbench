@@ -5,6 +5,7 @@ import { join } from "path";
 import * as readline from "readline";
 import { evaluatePR } from "./evaluator.js";
 import { fetchLocalBranch } from "./git-local.js";
+import { fetchPR } from "../github/index.js";
 
 function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({
@@ -178,9 +179,8 @@ async function main(): Promise<void> {
     // Fetch PR data from GitHub or local git
     let prData;
     if (hasPr) {
-      const { fetchPR } = await import("./github.js");
       console.log(`Fetching PR #${args.prNumber} from GitHub...`);
-      prData = await fetchPR(args.prNumber!);
+      prData = fetchPR(args.prNumber!, process.cwd());
     } else {
       console.log(`Fetching local branch "${args.branch}" (base: ${args.baseBranch})...`);
       prData = await fetchLocalBranch({

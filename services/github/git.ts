@@ -42,6 +42,24 @@ export function getChangedFiles(cwd: string): string[] {
   return status.split("\n").filter((line) => line.length > 0);
 }
 
+/**
+ * Get changed files within a specific path (relative to repo root).
+ * Use this to scope git status to a subdirectory.
+ */
+export function getChangedFilesInPath(repoRoot: string, relativePath: string): string[] {
+  const status = gitSafe(`status --porcelain -- "${relativePath}"`, repoRoot);
+  if (!status) return [];
+  return status.split("\n").filter((line) => line.length > 0);
+}
+
+/**
+ * Check if there are changes within a specific path.
+ */
+export function hasChangesInPath(repoRoot: string, relativePath: string): boolean {
+  const files = getChangedFilesInPath(repoRoot, relativePath);
+  return files.length > 0;
+}
+
 // ============================================================================
 // Branch utilities
 // ============================================================================
@@ -85,6 +103,24 @@ export function commitAll(cwd: string, message: string): string {
   git("add -A", cwd);
   git(`commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
   return git("rev-parse --short HEAD", cwd);
+}
+
+/**
+ * Add and commit only files within a specific path.
+ */
+export function commitPath(repoRoot: string, relativePath: string, message: string): string {
+  git(`add "${relativePath}"`, repoRoot);
+  git(`commit -m "${message.replace(/"/g, '\\"')}"`, repoRoot);
+  return git("rev-parse --short HEAD", repoRoot);
+}
+
+/**
+ * Restore working directory to HEAD state (discard all changes).
+ * Useful for resetting app directories before testing.
+ */
+export function restoreWorkingDirectory(path: string, cwd?: string): void {
+  const workingDir = cwd || path;
+  git("restore .", workingDir);
 }
 
 export function push(cwd: string, branch: string, remote: string = "origin"): void {
