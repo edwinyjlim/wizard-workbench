@@ -66,6 +66,25 @@ export function getRepoRoot(cwd: string): string {
   return git("rev-parse --show-toplevel", cwd);
 }
 
+export function deleteBranch(cwd: string, branch: string): void {
+  git(`branch -D "${branch}"`, cwd);
+}
+
+export function listBranches(cwd: string, pattern?: string): string[] {
+  const cmd = pattern ? `branch --list "${pattern}"` : "branch --list";
+  const result = gitSafe(cmd, cwd);
+  if (!result) return [];
+  return result
+    .split("\n")
+    .map((line) => line.replace(/^\*?\s+/, "").trim())
+    .filter((line) => line.length > 0);
+}
+
+export function branchExists(cwd: string, branch: string): boolean {
+  const result = gitSafe(`rev-parse --verify "${branch}"`, cwd);
+  return result !== null;
+}
+
 // ============================================================================
 // GitHub CLI utilities
 // ============================================================================
