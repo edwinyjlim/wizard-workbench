@@ -28,6 +28,8 @@ import {
   deleteBranches,
   formatMs,
   timestamp,
+  extractPRNumber,
+  runEvaluator,
   type App,
 } from "./utils.js";
 
@@ -49,6 +51,7 @@ interface Options {
   reuseBranch?: string;
   pushOnly: boolean;
   branch?: string;
+  evaluate: boolean;
 }
 
 // ============================================================================
@@ -65,6 +68,7 @@ function parseArgs(): Options {
     deleteBranch: false,
     clean: false,
     pushOnly: false,
+    evaluate: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -79,6 +83,7 @@ function parseArgs(): Options {
     else if (arg === "--reuse-branch" || arg === "-b") opts.reuseBranch = args[++i];
     else if (arg === "--push-only" || arg === "-p") opts.pushOnly = true;
     else if (arg === "--branch") opts.branch = args[++i];
+    else if (arg === "--evaluate" || arg === "-e") opts.evaluate = true;
     else if (arg === "--help" || arg === "-h") {
       console.log(`
 wizard-test: Run wizard on test apps and create PRs
@@ -97,6 +102,9 @@ Branch Management:
   pnpm wizard-test --reuse-branch <n>  Reuse existing branch instead of creating new
   pnpm wizard-test --push-only         Skip reset/wizard, just push and create PR
   pnpm wizard-test --branch <name>     Branch to push (with --push-only, default: current)
+
+Evaluation:
+  pnpm wizard-test --evaluate, -e      Run pr-evaluator after PR creation
 `);
       process.exit(0);
     }
@@ -238,6 +246,23 @@ async function pushOnlyMode(opts: Options): Promise<void> {
   console.log("[2/2] Creating PR...");
   console.log(`      PR: ${result.prUrl}\n`);
 
+  // Run evaluation if requested
+  if (opts.evaluate && result.prUrl) {
+    const prNumber = extractPRNumber(result.prUrl);
+    if (prNumber) {
+      console.log("[3/3] Running PR evaluation...");
+      console.log(`      PR #${prNumber}\n`);
+      const evalResult = await runEvaluator(prNumber);
+      if (!evalResult.success) {
+        console.warn(`      Evaluation failed: ${evalResult.error}\n`);
+      } else {
+        console.log(`      Evaluation complete\n`);
+      }
+    } else {
+      console.warn(`      Could not extract PR number from URL: ${result.prUrl}\n`);
+    }
+  }
+
   if (opts.deleteBranch) {
     console.log(`      Deleted local branch: ${targetBranch}\n`);
   } else if (opts.branch && opts.branch !== originalBranch) {
@@ -371,6 +396,23 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   }
 
   console.log(`      PR: ${prResult.prUrl}\n`);
+
+  // Run evaluation if requested
+  if (opts.evaluate && prResult.prUrl) {
+    const prNumber = extractPRNumber(prResult.prUrl);
+    if (prNumber) {
+      console.log("[6/6] Running PR evaluation...");
+      console.log(`      PR #${prNumber}\n`);
+      const evalResult = await runEvaluator(prNumber);
+      if (!evalResult.success) {
+        console.warn(`      Evaluation failed: ${evalResult.error}\n`);
+      } else {
+        console.log(`      Evaluation complete\n`);
+      }
+    } else {
+      console.warn(`      Could not extract PR number from URL: ${prResult.prUrl}\n`);
+    }
+  }
 
   if (opts.deleteBranch) {
     console.log(`      Deleted local branch: ${branchName}\n`);
