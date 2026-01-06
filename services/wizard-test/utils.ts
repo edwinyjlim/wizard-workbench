@@ -46,8 +46,12 @@ export function commitAll(cwd: string, message: string): string {
   return git("rev-parse --short HEAD", cwd);
 }
 
-export function push(cwd: string, branch: string): void {
-  git(`push -u origin "${branch}"`, cwd);
+export function getRemoteUrl(cwd: string, remote: string = "origin"): string | null {
+  return gitSafe(`remote get-url ${remote}`, cwd);
+}
+
+export function push(cwd: string, branch: string, remote: string = "origin"): void {
+  git(`push -u ${remote} "${branch}"`, cwd);
 }
 
 export function checkout(cwd: string, branch: string): void {
@@ -62,16 +66,135 @@ export function getRepoRoot(cwd: string): string {
   return git("rev-parse --show-toplevel", cwd);
 }
 
+export function deleteBranch(cwd: string, branch: string): void {
+  git(`branch -D "${branch}"`, cwd);
+}
+
+export function listBranches(cwd: string, pattern?: string): string[] {
+  const cmd = pattern ? `branch --list "${pattern}"` : "branch --list";
+  const result = gitSafe(cmd, cwd);
+  if (!result) return [];
+  return result
+    .split("\n")
+    .map((line) => line.replace(/^\*?\s+/, "").trim())
+    .filter((line) => line.length > 0);
+}
+
+export function branchExists(cwd: string, branch: string): boolean {
+  const result = gitSafe(`rev-parse --verify "${branch}"`, cwd);
+  return result !== null;
+}
+
 // ============================================================================
 // GitHub CLI utilities
 // ============================================================================
 
 export function createPR(cwd: string, title: string, body: string, base: string): string {
+  // Escape quotes and backticks for shell
+  const escapeForShell = (str: string) => str.replace(/"/g, '\\"').replace(/`/g, "\\`");
   const result = execSync(
-    `gh pr create --title "${title}" --body "${body.replace(/"/g, '\\"')}" --base "${base}"`,
+    `gh pr create --title "${escapeForShell(title)}" --body "${escapeForShell(body)}" --base "${base}"`,
     { cwd, encoding: "utf-8", stdio: "pipe" }
   );
   return result.trim();
+}
+
+// ============================================================================
+// High-level branch operations
+// ============================================================================
+
+export interface PushAndPROptions {
+  repoRoot: string;
+  branch: string;
+  remote: string;
+  base: string;
+  title: string;
+  body: string;
+  deleteBranchAfter: boolean;
+  returnToBranch?: string;
+}
+
+export interface PushAndPRResult {
+  success: boolean;
+  prUrl?: string;
+  error?: string;
+}
+
+/**
+ * Push a branch and create a PR. Optionally delete local branch after.
+ */
+export function pushAndCreatePR(opts: PushAndPROptions): PushAndPRResult {
+  const { repoRoot, branch, remote, base, title, body, deleteBranchAfter, returnToBranch } = opts;
+
+  try {
+    push(repoRoot, branch, remote);
+  } catch (e) {
+    return { success: false, error: `Failed to push: ${e}` };
+  }
+
+  let prUrl: string;
+  try {
+    prUrl = createPR(repoRoot, title, body, base);
+  } catch (e) {
+    return { success: false, error: `Failed to create PR: ${e}` };
+  }
+
+  if (deleteBranchAfter && returnToBranch) {
+    checkout(repoRoot, returnToBranch);
+    try {
+      deleteBranch(repoRoot, branch);
+    } catch {
+      // Ignore delete errors - PR was created successfully
+    }
+  }
+
+  return { success: true, prUrl };
+}
+
+export interface SwitchOrCreateBranchOptions {
+  repoRoot: string;
+  branchName?: string;
+  generateName: () => string;
+}
+
+export interface SwitchOrCreateBranchResult {
+  branch: string;
+  created: boolean;
+}
+
+/**
+ * Switch to an existing branch or create a new one.
+ */
+export function switchOrCreateBranch(opts: SwitchOrCreateBranchOptions): SwitchOrCreateBranchResult {
+  const { repoRoot, branchName, generateName } = opts;
+
+  if (branchName && branchExists(repoRoot, branchName)) {
+    checkout(repoRoot, branchName);
+    return { branch: branchName, created: false };
+  }
+
+  const newBranch = branchName || generateName();
+  createBranch(repoRoot, newBranch);
+  return { branch: newBranch, created: true };
+}
+
+/**
+ * Delete multiple branches, returning count of deleted.
+ */
+export function deleteBranches(repoRoot: string, branches: string[]): { deleted: number; failed: string[] } {
+  let deleted = 0;
+  const failed: string[] = [];
+
+  for (const branch of branches) {
+    try {
+      deleteBranch(repoRoot, branch);
+      deleted++;
+    } catch {
+      failed.push(branch);
+    }
+  }
+
+  return { deleted, failed };
 }
 
 // ============================================================================

@@ -17,13 +17,15 @@ import {
   hasChanges,
   getChangedFiles,
   runWizard,
-  createBranch,
   commitAll,
-  push,
-  createPR,
   checkout,
   getCurrentBranch,
   getRepoRoot,
+  getRemoteUrl,
+  listBranches,
+  pushAndCreatePR,
+  switchOrCreateBranch,
+  deleteBranches,
   formatMs,
   timestamp,
   type App,
@@ -41,6 +43,12 @@ interface Options {
   all: boolean;
   local: boolean;
   base: string;
+  remote: string;
+  deleteBranch: boolean;
+  clean: boolean;
+  reuseBranch?: string;
+  pushOnly: boolean;
+  branch?: string;
 }
 
 // ============================================================================
@@ -49,7 +57,15 @@ interface Options {
 
 function parseArgs(): Options {
   const args = process.argv.slice(2);
-  const opts: Options = { all: false, local: false, base: "main" };
+  const opts: Options = {
+    all: false,
+    local: false,
+    base: "main",
+    remote: "origin",
+    deleteBranch: false,
+    clean: false,
+    pushOnly: false,
+  };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -57,6 +73,12 @@ function parseArgs(): Options {
     else if (arg === "--all") opts.all = true;
     else if (arg === "--local" || arg === "-l") opts.local = true;
     else if (arg === "--base") opts.base = args[++i];
+    else if (arg === "--remote" || arg === "-r") opts.remote = args[++i];
+    else if (arg === "--delete-branch" || arg === "-d") opts.deleteBranch = true;
+    else if (arg === "--clean") opts.clean = true;
+    else if (arg === "--reuse-branch" || arg === "-b") opts.reuseBranch = args[++i];
+    else if (arg === "--push-only" || arg === "-p") opts.pushOnly = true;
+    else if (arg === "--branch") opts.branch = args[++i];
     else if (arg === "--help" || arg === "-h") {
       console.log(`
 wizard-test: Run wizard on test apps and create PRs
@@ -67,6 +89,14 @@ Usage:
   pnpm wizard-test --all               Test all apps
   pnpm wizard-test --local             Skip PR creation
   pnpm wizard-test --base <branch>     Base branch for PR (default: main)
+  pnpm wizard-test --remote <name>     Git remote to push to (default: origin)
+
+Branch Management:
+  pnpm wizard-test --delete-branch     Delete local branch after push
+  pnpm wizard-test --clean             Delete old wizard-test branches
+  pnpm wizard-test --reuse-branch <n>  Reuse existing branch instead of creating new
+  pnpm wizard-test --push-only         Skip reset/wizard, just push and create PR
+  pnpm wizard-test --branch <name>     Branch to push (with --push-only, default: current)
 `);
       process.exit(0);
     }
@@ -94,6 +124,130 @@ async function selectApp(apps: App[]): Promise<App> {
     process.exit(1);
   }
   return apps[index];
+}
+
+// ============================================================================
+// Branch management
+// ============================================================================
+
+async function cleanBranches(): Promise<void> {
+  const repoRoot = getRepoRoot(WORKBENCH);
+  const branches = listBranches(repoRoot, "wizard-test/*");
+
+  if (branches.length === 0) {
+    console.log("No wizard-test branches found.\n");
+    return;
+  }
+
+  console.log(`\nFound ${branches.length} wizard-test branch(es):\n`);
+  branches.forEach((branch, i) => console.log(`  ${i + 1}) ${branch}`));
+
+  const answer = await prompt(`\nDelete all ${branches.length} branch(es)? (y/n): `);
+  if (answer.toLowerCase() !== "y") {
+    console.log("Cancelled.\n");
+    return;
+  }
+
+  const { deleted, failed } = deleteBranches(repoRoot, branches);
+  for (const branch of branches.filter((b) => !failed.includes(b))) {
+    console.log(`  Deleted: ${branch}`);
+  }
+  for (const branch of failed) {
+    console.error(`  Failed to delete: ${branch}`);
+  }
+
+  console.log(`\nDeleted ${deleted}/${branches.length} branch(es).\n`);
+}
+
+// ============================================================================
+// Push-only mode
+// ============================================================================
+
+async function pushOnlyMode(opts: Options): Promise<void> {
+  const repoRoot = getRepoRoot(WORKBENCH);
+  const originalBranch = getCurrentBranch(repoRoot);
+
+  // Determine which branch to push
+  const targetBranch = opts.branch || originalBranch;
+
+  // Switch to target branch if specified and different from current
+  if (opts.branch && opts.branch !== originalBranch) {
+    try {
+      checkout(repoRoot, opts.branch);
+    } catch (e) {
+      console.error(`\nError: Branch "${opts.branch}" not found.`);
+      process.exit(1);
+    }
+  }
+
+  console.log(`\n${"─".repeat(50)}`);
+  console.log(`Push-only mode`);
+  console.log(`${"─".repeat(50)}\n`);
+
+  console.log(`      Branch: ${targetBranch}`);
+  console.log(`      Base: ${opts.base}`);
+
+  if (targetBranch === opts.base) {
+    console.error(`\nError: Target branch is the base branch (${opts.base}).`);
+    console.error("Specify a different branch with --branch.\n");
+    if (opts.branch && opts.branch !== originalBranch) {
+      checkout(repoRoot, originalBranch);
+    }
+    process.exit(1);
+  }
+
+  // Check for uncommitted changes
+  if (hasChanges(repoRoot)) {
+    console.log("\n      WARNING: You have uncommitted changes.\n");
+    const changedFiles = getChangedFiles(repoRoot);
+    for (const file of changedFiles) {
+      console.log(`        ${file}`);
+    }
+    const confirm = await prompt("\n      Continue anyway? (y/n): ");
+    if (confirm.toLowerCase() !== "y") {
+      console.log("      Cancelled.\n");
+      return;
+    }
+  }
+
+  // Push and create PR
+  console.log("\n[1/2] Pushing to remote...");
+  const remoteUrl = getRemoteUrl(repoRoot, opts.remote);
+  console.log(`      Remote: ${opts.remote} (${remoteUrl})`);
+
+  const result = pushAndCreatePR({
+    repoRoot,
+    branch: targetBranch,
+    remote: opts.remote,
+    base: opts.base,
+    title: `[Wizard Test] ${targetBranch}`,
+    body: `Automated wizard test\n\nBranch: \`${targetBranch}\``,
+    deleteBranchAfter: opts.deleteBranch,
+    returnToBranch: originalBranch,
+  });
+
+  if (!result.success) {
+    console.error(`      ${result.error}`);
+    if (opts.branch && opts.branch !== originalBranch) {
+      checkout(repoRoot, originalBranch);
+    }
+    process.exit(1);
+  }
+
+  console.log(`      Pushed: ${targetBranch}\n`);
+  console.log("[2/2] Creating PR...");
+  console.log(`      PR: ${result.prUrl}\n`);
+
+  if (opts.deleteBranch) {
+    console.log(`      Deleted local branch: ${targetBranch}\n`);
+  } else if (opts.branch && opts.branch !== originalBranch) {
+    // Return to original branch if we switched
+    checkout(repoRoot, originalBranch);
+  }
+
+  console.log(`${"═".repeat(50)}`);
+  console.log(`Done`);
+  console.log(`${"═".repeat(50)}\n`);
 }
 
 // ============================================================================
@@ -163,36 +317,68 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   console.log("[4/5] Creating branch and committing...");
   const repoRoot = getRepoRoot(WORKBENCH);
   const originalBranch = getCurrentBranch(repoRoot);
-  const branchName = `wizard-test/${app.name.replace(/\//g, "-")}/${timestamp()}`;
+
+  // Switch to existing or create new branch
+  const generateBranchName = () => `wizard-test/${app.name.replace(/\//g, "-")}/${timestamp()}`;
+  let branchResult;
+  try {
+    branchResult = switchOrCreateBranch({
+      repoRoot,
+      branchName: opts.reuseBranch,
+      generateName: generateBranchName,
+    });
+    if (!branchResult.created) {
+      console.log(`      Reusing branch: ${branchResult.branch}`);
+    }
+  } catch (e) {
+    console.error(`      Failed to switch/create branch: ${e}`);
+    checkout(repoRoot, originalBranch);
+    return false;
+  }
+
+  const branchName = branchResult.branch;
 
   try {
-    createBranch(repoRoot, branchName);
     const hash = commitAll(repoRoot, `wizard-test: ${app.name}`);
     console.log(`      Branch: ${branchName}`);
     console.log(`      Commit: ${hash}\n`);
   } catch (e) {
-    console.error(`      Failed: ${e}`);
+    console.error(`      Failed to commit: ${e}`);
     checkout(repoRoot, originalBranch);
     return false;
   }
 
   // 5. Push and create PR
   console.log("[5/5] Pushing and creating PR...");
-  try {
-    push(repoRoot, branchName);
-    const prUrl = createPR(
-      repoRoot,
-      `[Wizard Test] ${app.name}`,
-      `Automated wizard test on \`${app.name}\`\n\nDuration: ${formatMs(result.duration)}`,
-      opts.base
-    );
-    console.log(`      PR: ${prUrl}\n`);
-  } catch (e) {
-    console.error(`      Failed: ${e}`);
+  const remoteUrl = getRemoteUrl(repoRoot, opts.remote);
+  console.log(`      Remote: ${opts.remote} (${remoteUrl})`);
+
+  const prResult = pushAndCreatePR({
+    repoRoot,
+    branch: branchName,
+    remote: opts.remote,
+    base: opts.base,
+    title: `[Wizard Test] ${app.name}`,
+    body: `Automated wizard test on \`${app.name}\`\n\nDuration: ${formatMs(result.duration)}`,
+    deleteBranchAfter: opts.deleteBranch,
+    returnToBranch: originalBranch,
+  });
+
+  if (!prResult.success) {
+    console.error(`      ${prResult.error}`);
+    checkout(repoRoot, originalBranch);
+    return false;
   }
 
-  // Return to original branch
-  checkout(repoRoot, originalBranch);
+  console.log(`      PR: ${prResult.prUrl}\n`);
+
+  if (opts.deleteBranch) {
+    console.log(`      Deleted local branch: ${branchName}\n`);
+  } else {
+    // Return to original branch
+    checkout(repoRoot, originalBranch);
+  }
+
   return true;
 }
 
@@ -202,6 +388,19 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
 
 async function main(): Promise<void> {
   const opts = parseArgs();
+
+  // Handle --clean command
+  if (opts.clean) {
+    await cleanBranches();
+    return;
+  }
+
+  // Handle --push-only command
+  if (opts.pushOnly) {
+    await pushOnlyMode(opts);
+    return;
+  }
+
   const apps = findApps(APPS_DIR);
 
   if (apps.length === 0) {

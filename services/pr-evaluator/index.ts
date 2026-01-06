@@ -153,15 +153,7 @@ async function main(): Promise<void> {
     args.testRun = true;
   }
 
-  // For PR mode, check GitHub token
-  if (hasPr) {
-    const token = process.env.GITHUB_TOKEN;
-    const hasValidToken = token && !token.startsWith("ghp_...") && token.length > 10;
-    if (!hasValidToken && !args.testRun) {
-      console.warn("Warning: GITHUB_TOKEN not set or invalid. Using --test-run mode (comment will not be posted).");
-      args.testRun = true;
-    }
-  }
+  // Note: We use the gh CLI for GitHub operations, which handles authentication automatically
 
   // Create test run directory if needed
   let testRunDir: string | undefined;
