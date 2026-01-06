@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * wizard-test: Run wizard on test apps and optionally create PRs
+ * wizard-ci: Run wizard on test apps and optionally create PRs
  *
  * Usage:
- *   pnpm wizard-test                              # Interactive selection
- *   pnpm wizard-test --app next-js/15-app-router-saas
- *   pnpm wizard-test --app next-js/15-app-router-saas --local
- *   pnpm wizard-test --all --local
+ *   pnpm wizard-ci                              # Interactive selection
+ *   pnpm wizard-ci --app next-js/15-app-router-saas
+ *   pnpm wizard-ci --app next-js/15-app-router-saas --local
+ *   pnpm wizard-ci --all --local
  */
 import "dotenv/config";
 import { createInterface } from "readline";
@@ -29,7 +29,7 @@ import {
   switchOrCreateBranch,
   deleteBranches,
   formatMs,
-  timestamp,
+  shortId,
   extractPRNumber,
   runEvaluator,
   type App,
@@ -88,25 +88,25 @@ function parseArgs(): Options {
     else if (arg === "--evaluate" || arg === "-e") opts.evaluate = true;
     else if (arg === "--help" || arg === "-h") {
       console.log(`
-wizard-test: Run wizard on test apps and create PRs
+wizard-ci: Run wizard on test apps and create PRs
 
 Usage:
-  pnpm wizard-test                     Interactive app selection
-  pnpm wizard-test --app <name>        Test specific app
-  pnpm wizard-test --all               Test all apps
-  pnpm wizard-test --local             Skip PR creation
-  pnpm wizard-test --base <branch>     Base branch for PR (default: main)
-  pnpm wizard-test --remote <name>     Git remote to push to (default: origin)
+  pnpm wizard-ci                     Interactive app selection
+  pnpm wizard-ci --app <name>        Test specific app
+  pnpm wizard-ci --all               Test all apps
+  pnpm wizard-ci --local             Skip PR creation
+  pnpm wizard-ci --base <branch>     Base branch for PR (default: main)
+  pnpm wizard-ci --remote <name>     Git remote to push to (default: origin)
 
 Branch Management:
-  pnpm wizard-test --delete-branch     Delete local branch after push
-  pnpm wizard-test --clean             Delete old wizard-test branches
-  pnpm wizard-test --reuse-branch <n>  Reuse existing branch instead of creating new
-  pnpm wizard-test --push-only         Skip reset/wizard, just push and create PR
-  pnpm wizard-test --branch <name>     Branch to push (with --push-only, default: current)
+  pnpm wizard-ci --delete-branch     Delete local branch after push
+  pnpm wizard-ci --clean             Delete old wizard-ci branches
+  pnpm wizard-ci --reuse-branch <n>  Reuse existing branch instead of creating new
+  pnpm wizard-ci --push-only         Skip reset/wizard, just push and create PR
+  pnpm wizard-ci --branch <name>     Branch to push (with --push-only, default: current)
 
 Evaluation:
-  pnpm wizard-test --evaluate, -e      Run pr-evaluator after PR creation
+  pnpm wizard-ci --evaluate, -e      Run pr-evaluator after PR creation
 `);
       process.exit(0);
     }
@@ -142,14 +142,14 @@ async function selectApp(apps: App[]): Promise<App> {
 
 async function cleanBranches(): Promise<void> {
   const repoRoot = getRepoRoot(WORKBENCH);
-  const branches = listBranches(repoRoot, "wizard-test/*");
+  const branches = listBranches(repoRoot, "wizard-ci/*");
 
   if (branches.length === 0) {
-    console.log("No wizard-test branches found.\n");
+    console.log("No wizard-ci branches found.\n");
     return;
   }
 
-  console.log(`\nFound ${branches.length} wizard-test branch(es):\n`);
+  console.log(`\nFound ${branches.length} wizard-ci branch(es):\n`);
   branches.forEach((branch, i) => console.log(`  ${i + 1}) ${branch}`));
 
   const answer = await prompt(`\nDelete all ${branches.length} branch(es)? (y/n): `);
@@ -348,7 +348,7 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   const originalBranch = getCurrentBranch(repoRoot);
 
   // Switch to existing or create new branch
-  const generateBranchName = () => `wizard-test/${app.name.replace(/\//g, "-")}/${timestamp()}`;
+  const generateBranchName = () => `wizard-ci/${app.name.replace(/\//g, "-")}/${shortId()}`;
   let branchResult;
   try {
     branchResult = switchOrCreateBranch({
@@ -369,7 +369,7 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
 
   try {
     // Only commit files within the app directory
-    const hash = commitPath(repoRoot, appRelativePath, `wizard-test: ${app.name}`);
+    const hash = commitPath(repoRoot, appRelativePath, `wizard-ci: ${app.name}`);
     console.log(`      Branch: ${branchName}`);
     console.log(`      Commit: ${hash}\n`);
   } catch (e) {
