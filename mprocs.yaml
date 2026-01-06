@@ -37,7 +37,7 @@ procs:
     autostart: false
     env_file: .env
 
-  tail-wizard-run:
+  wizard-tail-run:
     # Tail the wizard's verbose output
     shell: "tail -f /tmp/posthog-wizard.log"
     autostart: false
@@ -47,17 +47,19 @@ procs:
   # ═══════════════════════════════════════════════════════════════════════════
 
   wizard-ci-run:
+    # Runs the full CI flow, creates a PR on GH, and agent evaluates code 
     shell: "pnpm wizard-ci --evaluate"
     autostart: false
     env_file: .env
 
   wizard-ci-local:
+    # Runs the CI flow and agent evaluates code locally
     shell: "pnpm wizard-ci --local"
     autostart: false
     env_file: .env
 
   wizard-ci-create-pr:
-    # Push current branch and create PR (skip reset/wizard steps)
+    # Only pushes branch and creates PR on GH
     shell: "pnpm wizard-ci --push-only --branch"
     autostart: false
     env_file: .env
@@ -66,7 +68,8 @@ procs:
   # PR/BRANCH EVALUATION
   # ═══════════════════════════════════════════════════════════════════════════
 
-  evaluate-pr-branch:
+  wizard-ci-evaluate-pr:
+    # Agent evaluates a PR or local branch
     shell: "pnpm run evaluate"
     autostart: false
     env_file: .env
