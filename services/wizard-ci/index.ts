@@ -305,7 +305,7 @@ async function pushOnlyMode(opts: Options): Promise<void> {
 
   if (opts.deleteBranch) {
     console.log(`      Deleted local branch: ${targetBranch}\n`);
-  } else if (opts.branch && opts.branch !== originalBranch) {
+  } else if (targetBranch !== originalBranch) {
     // Return to original branch if we switched
     checkout(repoRoot, originalBranch);
   }
@@ -316,15 +316,15 @@ async function pushOnlyMode(opts: Options): Promise<void> {
 }
 
 // ============================================================================
-// Test flow
+// Run Wizard CI flow
 // ============================================================================
 
-async function testApp(app: App, opts: Options): Promise<boolean> {
+async function runCI(app: App, opts: Options): Promise<boolean> {
   const repoRoot = getRepoRoot(WORKBENCH);
   const appRelativePath = relative(repoRoot, app.path);
 
   console.log(`\n${"─".repeat(50)}`);
-  console.log(`Testing: ${app.name}`);
+  console.log(`Running CI: ${app.name}`);
   console.log(`${"─".repeat(50)}\n`);
 
   // 1. Reset app only (with confirmation)
@@ -522,7 +522,7 @@ async function main(): Promise<void> {
 
   let passed = 0;
   for (const app of targets) {
-    if (await testApp(app, opts)) passed++;
+    if (await runCI(app, opts)) passed++;
   }
 
   // Summary
