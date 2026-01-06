@@ -1,0 +1,52 @@
+[
+  {
+    "event": "todo_created",
+    "description": "User creates a new todo item",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todo_completed",
+    "description": "User marks a todo item as completed",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todo_uncompleted",
+    "description": "User marks a completed todo item as not completed",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todo_deleted",
+    "description": "User deletes a todo item",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todos_loaded",
+    "description": "User successfully loads their todo list",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todo_create_failed",
+    "description": "Error occurred when creating a todo",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todo_update_failed",
+    "description": "Error occurred when updating a todo",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todo_delete_failed",
+    "description": "Error occurred when deleting a todo",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "todos_fetch_failed",
+    "description": "Error occurred when fetching todos",
+    "file_path": "components/todos/todo-list.tsx"
+  },
+  {
+    "event": "about_page_viewed",
+    "description": "User navigates to the about page (top of potential conversion funnel)",
+    "file_path": "app/about/page.tsx"
+  }
+]
