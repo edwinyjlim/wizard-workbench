@@ -54,10 +54,10 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
       if (textContent) {
         // Log full text if it looks like an error, otherwise preview
         if (textContent.text.includes("API Error")) {
-          console.log("Agent:", textContent.text);
+          console.log("AGENT:", textContent.text);
         } else {
-          const preview = textContent.text.substring(0, 100);
-          console.log("Agent:", preview + (textContent.text.length > 100 ? "..." : ""));
+          const preview = textContent.text.substring(0, 250);
+          console.log("AGENT:", preview + (textContent.text.length > 250 ? "..." : ""));
         }
       }
     }
