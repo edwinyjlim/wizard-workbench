@@ -10,14 +10,16 @@
  */
 import "dotenv/config";
 import { createInterface } from "readline";
-import { join } from "path";
+import { join, relative } from "path";
 import {
   findApps,
   resetApp,
   hasChanges,
   getChangedFiles,
+  hasChangesInPath,
+  getChangedFilesInPath,
   runWizard,
-  commitAll,
+  commitPath,
   checkout,
   getCurrentBranch,
   getRepoRoot,
@@ -280,17 +282,20 @@ async function pushOnlyMode(opts: Options): Promise<void> {
 // ============================================================================
 
 async function testApp(app: App, opts: Options): Promise<boolean> {
+  const repoRoot = getRepoRoot(WORKBENCH);
+  const appRelativePath = relative(repoRoot, app.path);
+
   console.log(`\n${"─".repeat(50)}`);
   console.log(`Testing: ${app.name}`);
   console.log(`${"─".repeat(50)}\n`);
 
-  // 1. Reset (with confirmation)
+  // 1. Reset app only (with confirmation)
   console.log("[1/5] Reset app to clean state");
   console.log(`      Path: ${app.path}\n`);
 
-  const changedFiles = getChangedFiles(app.path);
+  const changedFiles = getChangedFilesInPath(repoRoot, appRelativePath);
   if (changedFiles.length > 0) {
-    console.log(`      WARNING: This will discard ${changedFiles.length} uncommitted change(s):\n`);
+    console.log(`      WARNING: This will discard ${changedFiles.length} uncommitted change(s) in ${app.name}:\n`);
     for (const file of changedFiles) {
       console.log(`        ${file}`);
     }
@@ -302,7 +307,7 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
       return false;
     }
   } else {
-    console.log("      No uncommitted changes found\n");
+    console.log("      No uncommitted changes in app\n");
   }
 
   try {
@@ -324,9 +329,9 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   }
   console.log(`      Completed in ${formatMs(result.duration)}\n`);
 
-  // 3. Check changes
+  // 3. Check changes in app directory only
   console.log("[3/5] Checking changes...");
-  if (!hasChanges(app.path)) {
+  if (!hasChangesInPath(repoRoot, appRelativePath)) {
     console.log("      No changes detected\n");
     return true;
   }
@@ -338,9 +343,8 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
     return true;
   }
 
-  // 4. Create branch and commit
+  // 4. Create branch and commit only app files
   console.log("[4/5] Creating branch and committing...");
-  const repoRoot = getRepoRoot(WORKBENCH);
   const originalBranch = getCurrentBranch(repoRoot);
 
   // Switch to existing or create new branch
@@ -364,7 +368,8 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   const branchName = branchResult.branch;
 
   try {
-    const hash = commitAll(repoRoot, `wizard-test: ${app.name}`);
+    // Only commit files within the app directory
+    const hash = commitPath(repoRoot, appRelativePath, `wizard-test: ${app.name}`);
     console.log(`      Branch: ${branchName}`);
     console.log(`      Commit: ${hash}\n`);
   } catch (e) {
