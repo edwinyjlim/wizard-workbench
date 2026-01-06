@@ -56,6 +56,12 @@ procs:
     autostart: false
     env_file: .env
 
+  wizard-test-push:
+    # Push current branch and create PR (skip reset/wizard steps)
+    shell: "pnpm wizard-test --push-only"
+    autostart: false
+    env_file: .env
+
   # ═══════════════════════════════════════════════════════════════════════════
   # EVALUATION
   # ═══════════════════════════════════════════════════════════════════════════

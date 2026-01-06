@@ -49,6 +49,7 @@ interface Options {
   deleteBranch: boolean;
   clean: boolean;
   reuseBranch?: string;
+  pushOnly: boolean;
 }
 
 // ============================================================================
@@ -64,6 +65,7 @@ function parseArgs(): Options {
     remote: "origin",
     deleteBranch: false,
     clean: false,
+    pushOnly: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -76,6 +78,7 @@ function parseArgs(): Options {
     else if (arg === "--delete-branch" || arg === "-d") opts.deleteBranch = true;
     else if (arg === "--clean") opts.clean = true;
     else if (arg === "--reuse-branch" || arg === "-b") opts.reuseBranch = args[++i];
+    else if (arg === "--push-only" || arg === "-p") opts.pushOnly = true;
     else if (arg === "--help" || arg === "-h") {
       console.log(`
 wizard-test: Run wizard on test apps and create PRs
@@ -92,6 +95,7 @@ Branch Management:
   pnpm wizard-test --delete-branch     Delete local branch after push
   pnpm wizard-test --clean             Delete old wizard-test branches
   pnpm wizard-test --reuse-branch <n>  Reuse existing branch instead of creating new
+  pnpm wizard-test --push-only         Skip reset/wizard, just push current branch and create PR
 `);
       process.exit(0);
     }
@@ -155,6 +159,85 @@ async function cleanBranches(): Promise<void> {
   }
 
   console.log(`\nDeleted ${deleted}/${branches.length} branch(es).\n`);
+}
+
+// ============================================================================
+// Push-only mode
+// ============================================================================
+
+async function pushAndCreatePR(opts: Options): Promise<void> {
+  const repoRoot = getRepoRoot(WORKBENCH);
+  const currentBranch = getCurrentBranch(repoRoot);
+
+  console.log(`\n${"─".repeat(50)}`);
+  console.log(`Push-only mode`);
+  console.log(`${"─".repeat(50)}\n`);
+
+  console.log(`      Branch: ${currentBranch}`);
+  console.log(`      Base: ${opts.base}`);
+
+  if (currentBranch === opts.base) {
+    console.error(`\nError: Current branch is the base branch (${opts.base}).`);
+    console.error("Switch to a feature branch first.\n");
+    process.exit(1);
+  }
+
+  // Check for uncommitted changes
+  if (hasChanges(repoRoot)) {
+    console.log("\n      WARNING: You have uncommitted changes.\n");
+    const changedFiles = getChangedFiles(repoRoot);
+    for (const file of changedFiles) {
+      console.log(`        ${file}`);
+    }
+    const confirm = await prompt("\n      Continue anyway? (y/n): ");
+    if (confirm.toLowerCase() !== "y") {
+      console.log("      Cancelled.\n");
+      return;
+    }
+  }
+
+  // Push
+  console.log("\n[1/2] Pushing to remote...");
+  const remoteUrl = getRemoteUrl(repoRoot, opts.remote);
+  console.log(`      Remote: ${opts.remote} (${remoteUrl})`);
+
+  try {
+    push(repoRoot, currentBranch, opts.remote);
+    console.log(`      Pushed: ${currentBranch}\n`);
+  } catch (e) {
+    console.error(`      Failed to push: ${e}`);
+    process.exit(1);
+  }
+
+  // Create PR
+  console.log("[2/2] Creating PR...");
+  try {
+    const prUrl = createPR(
+      repoRoot,
+      `[Wizard Test] ${currentBranch}`,
+      `Automated wizard test\n\nBranch: \`${currentBranch}\``,
+      opts.base
+    );
+    console.log(`      PR: ${prUrl}\n`);
+
+    // Delete local branch after successful push if requested
+    if (opts.deleteBranch) {
+      checkout(repoRoot, opts.base);
+      try {
+        deleteBranch(repoRoot, currentBranch);
+        console.log(`      Deleted local branch: ${currentBranch}\n`);
+      } catch (e) {
+        console.error(`      Failed to delete branch: ${e}`);
+      }
+    }
+  } catch (e) {
+    console.error(`      Failed to create PR: ${e}`);
+    process.exit(1);
+  }
+
+  console.log(`${"═".repeat(50)}`);
+  console.log(`Done`);
+  console.log(`${"═".repeat(50)}\n`);
 }
 
 // ============================================================================
@@ -303,6 +386,12 @@ async function main(): Promise<void> {
   // Handle --clean command
   if (opts.clean) {
     await cleanBranches();
+    return;
+  }
+
+  // Handle --push-only command
+  if (opts.pushOnly) {
+    await pushAndCreatePR(opts);
     return;
   }
 
