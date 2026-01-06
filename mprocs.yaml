@@ -21,7 +21,7 @@ procs:
     shell: "source .env && cd $MCP_PATH && pnpm run inspector"
     autostart: true
 
-  wizard:
+  wizard-build:
     # Skip global link - just build and watch. Use wizard-run to execute.
     shell: "source .env && cd $WIZARD_PATH && pnpm build && pnpm build:watch"
     autostart: true
@@ -43,36 +43,30 @@ procs:
     autostart: false
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # WIZARD TEST - Run wizard and optionally create PR
+  # WIZARD CI - Run wizard and optionally create PR
   # ═══════════════════════════════════════════════════════════════════════════
 
-  wizard-test:
-    shell: "pnpm wizard-test"
+  wizard-ci-run:
+    shell: "pnpm wizard-ci --evaluate"
     autostart: false
     env_file: .env
 
-  wizard-test-local:
-    shell: "pnpm wizard-test --local"
+  wizard-ci-local:
+    shell: "pnpm wizard-ci --local"
     autostart: false
     env_file: .env
 
-  wizard-test-push:
+  wizard-ci-create-pr:
     # Push current branch and create PR (skip reset/wizard steps)
-    shell: "pnpm wizard-test --push-only --branch testing-wizard-ci"
-    autostart: false
-    env_file: .env
-
-  wizard-test-push-and-evaluate:
-    # Run wizard, create PR, then run pr-evaluator
-    shell: "pnpm wizard-test --push-only --branch testing-wizard-ci --evaluate"
+    shell: "pnpm wizard-ci --push-only --branch testing-wizard-ci"
     autostart: false
     env_file: .env
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # EVALUATION
+  # PR/BRANCH EVALUATION
   # ═══════════════════════════════════════════════════════════════════════════
 
-  workbench-evaluate:
+  evaluate-pr-branch:
     shell: "pnpm run evaluate"
     autostart: false
     env_file: .env

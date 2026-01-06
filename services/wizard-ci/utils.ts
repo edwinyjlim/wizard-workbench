@@ -323,8 +323,12 @@ export function formatMs(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function timestamp(): string {
-  return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+/**
+ * Generate a short unique ID (7 characters, like git short hashes).
+ * Uses crypto.randomUUID() and takes the first 7 chars.
+ */
+export function shortId(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 7);
 }
 
 // ============================================================================

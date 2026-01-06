@@ -15,7 +15,7 @@
 import "dotenv/config";
 import { createInterface } from "readline";
 import { join } from "path";
-import { findApps, runWizard, type App } from "../wizard-test/utils.js";
+import { findApps, runWizard, type App } from "../wizard-ci/utils.js";
 
 const WORKBENCH = join(import.meta.dirname, "../..");
 const APPS_DIR = join(WORKBENCH, "apps");
