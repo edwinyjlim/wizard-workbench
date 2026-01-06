@@ -119,8 +119,16 @@ ${JSON.stringify(usageData.modelUsage, null, 2)}
   let commentUrl: string | undefined;
   if (!testRun && prData.number > 0) {
     console.log("\nPosting review comment to GitHub...");
-    commentUrl = await postPRComment(prData.number, reviewComment);
-    console.log(`Comment posted: ${commentUrl}`);
+    try {
+      commentUrl = postPRComment(prData.number, reviewComment);
+      console.log(`Comment posted: ${commentUrl}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Warning: Failed to post comment to GitHub: ${message}`);
+      console.log("\n--- Review Comment (not posted) ---");
+      console.log(reviewComment);
+      console.log("--- END ---\n");
+    }
   } else {
     console.log("\n--- TEST RUN: Review Comment Preview ---");
     console.log(reviewComment);
