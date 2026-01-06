@@ -90,8 +90,10 @@ export function branchExists(cwd: string, branch: string): boolean {
 // ============================================================================
 
 export function createPR(cwd: string, title: string, body: string, base: string): string {
+  // Escape quotes and backticks for shell
+  const escapeForShell = (str: string) => str.replace(/"/g, '\\"').replace(/`/g, "\\`");
   const result = execSync(
-    `gh pr create --title "${title}" --body "${body.replace(/"/g, '\\"')}" --base "${base}"`,
+    `gh pr create --title "${escapeForShell(title)}" --body "${escapeForShell(body)}" --base "${base}"`,
     { cwd, encoding: "utf-8", stdio: "pipe" }
   );
   return result.trim();
