@@ -48,6 +48,7 @@ interface Options {
   clean: boolean;
   reuseBranch?: string;
   pushOnly: boolean;
+  branch?: string;
 }
 
 // ============================================================================
@@ -77,6 +78,7 @@ function parseArgs(): Options {
     else if (arg === "--clean") opts.clean = true;
     else if (arg === "--reuse-branch" || arg === "-b") opts.reuseBranch = args[++i];
     else if (arg === "--push-only" || arg === "-p") opts.pushOnly = true;
+    else if (arg === "--branch") opts.branch = args[++i];
     else if (arg === "--help" || arg === "-h") {
       console.log(`
 wizard-test: Run wizard on test apps and create PRs
@@ -93,7 +95,8 @@ Branch Management:
   pnpm wizard-test --delete-branch     Delete local branch after push
   pnpm wizard-test --clean             Delete old wizard-test branches
   pnpm wizard-test --reuse-branch <n>  Reuse existing branch instead of creating new
-  pnpm wizard-test --push-only         Skip reset/wizard, just push current branch and create PR
+  pnpm wizard-test --push-only         Skip reset/wizard, just push and create PR
+  pnpm wizard-test --branch <name>     Branch to push (with --push-only, default: current)
 `);
       process.exit(0);
     }
@@ -162,18 +165,34 @@ async function cleanBranches(): Promise<void> {
 
 async function pushOnlyMode(opts: Options): Promise<void> {
   const repoRoot = getRepoRoot(WORKBENCH);
-  const currentBranch = getCurrentBranch(repoRoot);
+  const originalBranch = getCurrentBranch(repoRoot);
+
+  // Determine which branch to push
+  const targetBranch = opts.branch || originalBranch;
+
+  // Switch to target branch if specified and different from current
+  if (opts.branch && opts.branch !== originalBranch) {
+    try {
+      checkout(repoRoot, opts.branch);
+    } catch (e) {
+      console.error(`\nError: Branch "${opts.branch}" not found.`);
+      process.exit(1);
+    }
+  }
 
   console.log(`\n${"─".repeat(50)}`);
   console.log(`Push-only mode`);
   console.log(`${"─".repeat(50)}\n`);
 
-  console.log(`      Branch: ${currentBranch}`);
+  console.log(`      Branch: ${targetBranch}`);
   console.log(`      Base: ${opts.base}`);
 
-  if (currentBranch === opts.base) {
-    console.error(`\nError: Current branch is the base branch (${opts.base}).`);
-    console.error("Switch to a feature branch first.\n");
+  if (targetBranch === opts.base) {
+    console.error(`\nError: Target branch is the base branch (${opts.base}).`);
+    console.error("Specify a different branch with --branch.\n");
+    if (opts.branch && opts.branch !== originalBranch) {
+      checkout(repoRoot, originalBranch);
+    }
     process.exit(1);
   }
 
@@ -198,26 +217,32 @@ async function pushOnlyMode(opts: Options): Promise<void> {
 
   const result = pushAndCreatePR({
     repoRoot,
-    branch: currentBranch,
+    branch: targetBranch,
     remote: opts.remote,
     base: opts.base,
-    title: `[Wizard Test] ${currentBranch}`,
-    body: `Automated wizard test\n\nBranch: \`${currentBranch}\``,
+    title: `[Wizard Test] ${targetBranch}`,
+    body: `Automated wizard test\n\nBranch: \`${targetBranch}\``,
     deleteBranchAfter: opts.deleteBranch,
-    returnToBranch: opts.base,
+    returnToBranch: originalBranch,
   });
 
   if (!result.success) {
     console.error(`      ${result.error}`);
+    if (opts.branch && opts.branch !== originalBranch) {
+      checkout(repoRoot, originalBranch);
+    }
     process.exit(1);
   }
 
-  console.log(`      Pushed: ${currentBranch}\n`);
+  console.log(`      Pushed: ${targetBranch}\n`);
   console.log("[2/2] Creating PR...");
   console.log(`      PR: ${result.prUrl}\n`);
 
   if (opts.deleteBranch) {
-    console.log(`      Deleted local branch: ${currentBranch}\n`);
+    console.log(`      Deleted local branch: ${targetBranch}\n`);
+  } else if (opts.branch && opts.branch !== originalBranch) {
+    // Return to original branch if we switched
+    checkout(repoRoot, originalBranch);
   }
 
   console.log(`${"═".repeat(50)}`);
