@@ -58,7 +58,7 @@ procs:
 
   wizard-ci-create-pr:
     # Push current branch and create PR (skip reset/wizard steps)
-    shell: "pnpm wizard-ci --push-only --branch testing-wizard-ci"
+    shell: "pnpm wizard-ci --push-only --branch"
     autostart: false
     env_file: .env
 

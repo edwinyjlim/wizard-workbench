@@ -50,7 +50,6 @@ interface Options {
   remote: string;
   deleteBranch: boolean;
   clean: boolean;
-  reuseBranch?: string;
   pushOnly: boolean;
   branch?: string;
   evaluate: boolean;
@@ -82,10 +81,16 @@ function parseArgs(): Options {
     else if (arg === "--remote" || arg === "-r") opts.remote = args[++i];
     else if (arg === "--delete-branch" || arg === "-d") opts.deleteBranch = true;
     else if (arg === "--clean") opts.clean = true;
-    else if (arg === "--reuse-branch" || arg === "-b") opts.reuseBranch = args[++i];
     else if (arg === "--push-only" || arg === "-p") opts.pushOnly = true;
-    else if (arg === "--branch") opts.branch = args[++i];
-    else if (arg === "--evaluate" || arg === "-e") opts.evaluate = true;
+    else if (arg === "--branch" || arg === "-b") {
+      const nextArg = args[i + 1];
+      // If next arg is missing or is another flag, mark for prompt
+      if (!nextArg || nextArg.startsWith("-")) {
+        opts.branch = ""; // Empty string signals "prompt for branch"
+      } else {
+        opts.branch = args[++i];
+      }
+    } else if (arg === "--evaluate" || arg === "-e") opts.evaluate = true;
     else if (arg === "--help" || arg === "-h") {
       console.log(`
 wizard-ci: Run wizard on test apps and create PRs
@@ -99,11 +104,12 @@ Usage:
   pnpm wizard-ci --remote <name>     Git remote to push to (default: origin)
 
 Branch Management:
+  pnpm wizard-ci --branch, -b [name] Specify branch (prompts if no name given)
+                                     Full flow: reuse existing branch
+                                     Push-only: select branch to push
   pnpm wizard-ci --delete-branch     Delete local branch after push
   pnpm wizard-ci --clean             Delete old wizard-ci branches
-  pnpm wizard-ci --reuse-branch <n>  Reuse existing branch instead of creating new
   pnpm wizard-ci --push-only         Skip reset/wizard, just push and create PR
-  pnpm wizard-ci --branch <name>     Branch to push (with --push-only, default: current)
 
 Evaluation:
   pnpm wizard-ci --evaluate, -e      Run pr-evaluator after PR creation
@@ -177,6 +183,27 @@ async function pushOnlyMode(opts: Options): Promise<void> {
   const repoRoot = getRepoRoot(WORKBENCH);
   const originalBranch = getCurrentBranch(repoRoot);
 
+  // If --branch was provided without an argument, prompt for branch name
+  if (opts.branch === "") {
+    const allBranches = listBranches(repoRoot);
+    // Filter out the current branch and base branch
+    const branches = allBranches.filter((b) => b !== originalBranch && b !== opts.base);
+    if (branches.length === 0) {
+      console.error("\nNo branches found to push.\n");
+      process.exit(1);
+    }
+
+    console.log("\nAvailable branches:\n");
+    branches.forEach((branch, i) => console.log(`  ${i + 1}) ${branch}`));
+    const choice = await prompt(`\nSelect branch (1-${branches.length}): `);
+    const index = parseInt(choice, 10) - 1;
+    if (index < 0 || index >= branches.length) {
+      console.error("Invalid selection");
+      process.exit(1);
+    }
+    opts.branch = branches[index];
+  }
+
   // Determine which branch to push
   const targetBranch = opts.branch || originalBranch;
 
@@ -185,7 +212,13 @@ async function pushOnlyMode(opts: Options): Promise<void> {
     try {
       checkout(repoRoot, opts.branch);
     } catch (e) {
-      console.error(`\nError: Branch "${opts.branch}" not found.`);
+      const message = e instanceof Error ? e.message : String(e);
+      if (message.includes("would be overwritten")) {
+        console.error(`\nError: Cannot switch branches - you have uncommitted changes.`);
+        console.error("Please commit or stash your changes first.\n");
+      } else {
+        console.error(`\nError: Failed to checkout branch "${opts.branch}": ${message}`);
+      }
       process.exit(1);
     }
   }
@@ -225,13 +258,18 @@ async function pushOnlyMode(opts: Options): Promise<void> {
   const remoteUrl = getRemoteUrl(repoRoot, opts.remote);
   console.log(`      Remote: ${opts.remote} (${remoteUrl})`);
 
+  // Extract app name and shortId from branch name if it follows wizard-ci pattern
+  const branchMatch = targetBranch.match(/^wizard-ci\/(.+)\/([a-f0-9]{7})$/);
+  const appName = branchMatch?.[1] || targetBranch;
+  const branchShortId = branchMatch?.[2] || shortId();
+
   const result = pushAndCreatePR({
     repoRoot,
     branch: targetBranch,
     remote: opts.remote,
     base: opts.base,
-    title: `[Wizard Test] ${targetBranch}`,
-    body: `Automated wizard test\n\nBranch: \`${targetBranch}\``,
+    title: `[Wizard CI] ${appName} (${branchShortId})`,
+    body: `Automated wizard test on \`${appName}\`\n\nBranch: \`${targetBranch}\``,
     deleteBranchAfter: opts.deleteBranch,
     returnToBranch: originalBranch,
   });
@@ -348,12 +386,14 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   const originalBranch = getCurrentBranch(repoRoot);
 
   // Switch to existing or create new branch
+  // If --branch was specified with a value, use it; if empty string, it was already prompted in push-only mode
   const generateBranchName = () => `wizard-ci/${app.name.replace(/\//g, "-")}/${shortId()}`;
+  const specifiedBranch = opts.branch && opts.branch !== "" ? opts.branch : undefined;
   let branchResult;
   try {
     branchResult = switchOrCreateBranch({
       repoRoot,
-      branchName: opts.reuseBranch,
+      branchName: specifiedBranch,
       generateName: generateBranchName,
     });
     if (!branchResult.created) {
@@ -366,6 +406,9 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
   }
 
   const branchName = branchResult.branch;
+
+  // Extract shortId from branch name (last segment after final /)
+  const branchShortId = branchName.split("/").pop() || shortId();
 
   try {
     // Only commit files within the app directory
@@ -388,7 +431,7 @@ async function testApp(app: App, opts: Options): Promise<boolean> {
     branch: branchName,
     remote: opts.remote,
     base: opts.base,
-    title: `[Wizard Test] ${app.name}`,
+    title: `[Wizard CI] ${app.name} (${branchShortId})`,
     body: `Automated wizard test on \`${app.name}\`\n\nDuration: ${formatMs(result.duration)}`,
     deleteBranchAfter: opts.deleteBranch,
     returnToBranch: originalBranch,
