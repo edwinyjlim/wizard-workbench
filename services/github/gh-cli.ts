@@ -138,3 +138,12 @@ export function isGhAuthenticated(): boolean {
     return false;
   }
 }
+
+/**
+ * Extract PR number from GitHub PR URL
+ * e.g., "https://github.com/owner/repo/pull/123" -> 123
+ */
+export function extractPRNumber(prUrl: string): number | null {
+  const match = prUrl.match(/\/pull\/(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}

@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { postPRComment, type PRData } from "./github.js";
+import { postPRComment, type PRData } from "../github/index.js";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt-builder.js";
 
 export interface EvaluateOptions {
@@ -120,7 +120,7 @@ ${JSON.stringify(usageData.modelUsage, null, 2)}
   if (!testRun && prData.number > 0) {
     console.log("\nPosting review comment to GitHub...");
     try {
-      commentUrl = postPRComment(prData.number, reviewComment);
+      commentUrl = postPRComment(prData.number, reviewComment, process.cwd());
       console.log(`Comment posted: ${commentUrl}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

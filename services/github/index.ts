@@ -10,6 +10,8 @@ export {
   getRemoteUrl,
   hasChanges,
   getChangedFiles,
+  getChangedFilesInPath,
+  hasChangesInPath,
   getCurrentBranch,
   branchExists,
   createBranch,
@@ -17,6 +19,8 @@ export {
   deleteBranch,
   listBranches,
   commitAll,
+  commitPath,
+  restoreWorkingDirectory,
   push,
   getMergeBase,
   getDiff,
@@ -36,8 +40,21 @@ export {
   getPRNumber,
   getPRUrl,
   isGhAuthenticated,
+  extractPRNumber,
   type CreatePROptions,
 } from "./gh-cli.js";
+
+// High-level operations
+export {
+  pushAndCreatePR,
+  switchOrCreateBranch,
+  deleteBranches,
+  type PushAndPROptions,
+  type PushAndPRResult,
+  type SwitchOrCreateBranchOptions,
+  type SwitchOrCreateBranchResult,
+  type DeleteBranchesResult,
+} from "./operations.js";
 
 // Shared types
 export type { PRData, PRFile } from "./types.js";
