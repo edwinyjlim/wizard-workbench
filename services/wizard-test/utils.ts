@@ -98,6 +98,104 @@ export function createPR(cwd: string, title: string, body: string, base: string)
 }
 
 // ============================================================================
+// High-level branch operations
+// ============================================================================
+
+export interface PushAndPROptions {
+  repoRoot: string;
+  branch: string;
+  remote: string;
+  base: string;
+  title: string;
+  body: string;
+  deleteBranchAfter: boolean;
+  returnToBranch?: string;
+}
+
+export interface PushAndPRResult {
+  success: boolean;
+  prUrl?: string;
+  error?: string;
+}
+
+/**
+ * Push a branch and create a PR. Optionally delete local branch after.
+ */
+export function pushAndCreatePR(opts: PushAndPROptions): PushAndPRResult {
+  const { repoRoot, branch, remote, base, title, body, deleteBranchAfter, returnToBranch } = opts;
+
+  try {
+    push(repoRoot, branch, remote);
+  } catch (e) {
+    return { success: false, error: `Failed to push: ${e}` };
+  }
+
+  let prUrl: string;
+  try {
+    prUrl = createPR(repoRoot, title, body, base);
+  } catch (e) {
+    return { success: false, error: `Failed to create PR: ${e}` };
+  }
+
+  if (deleteBranchAfter && returnToBranch) {
+    checkout(repoRoot, returnToBranch);
+    try {
+      deleteBranch(repoRoot, branch);
+    } catch {
+      // Ignore delete errors - PR was created successfully
+    }
+  }
+
+  return { success: true, prUrl };
+}
+
+export interface SwitchOrCreateBranchOptions {
+  repoRoot: string;
+  branchName?: string;
+  generateName: () => string;
+}
+
+export interface SwitchOrCreateBranchResult {
+  branch: string;
+  created: boolean;
+}
+
+/**
+ * Switch to an existing branch or create a new one.
+ */
+export function switchOrCreateBranch(opts: SwitchOrCreateBranchOptions): SwitchOrCreateBranchResult {
+  const { repoRoot, branchName, generateName } = opts;
+
+  if (branchName && branchExists(repoRoot, branchName)) {
+    checkout(repoRoot, branchName);
+    return { branch: branchName, created: false };
+  }
+
+  const newBranch = branchName || generateName();
+  createBranch(repoRoot, newBranch);
+  return { branch: newBranch, created: true };
+}
+
+/**
+ * Delete multiple branches, returning count of deleted.
+ */
+export function deleteBranches(repoRoot: string, branches: string[]): { deleted: number; failed: string[] } {
+  let deleted = 0;
+  const failed: string[] = [];
+
+  for (const branch of branches) {
+    try {
+      deleteBranch(repoRoot, branch);
+      deleted++;
+    } catch {
+      failed.push(branch);
+    }
+  }
+
+  return { deleted, failed };
+}
+
+// ============================================================================
 // App discovery
 // ============================================================================
 
