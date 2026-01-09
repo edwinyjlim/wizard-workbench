@@ -3,6 +3,26 @@ import { useAuth } from '~/context/AuthContext'
 import { getCurrentUser } from '~/lib/utils/auth'
 import type { Route } from './+types/profile'
 
+function getSafeAvatarUrl(avatar: string | null | undefined): string {
+  const defaultAvatar =
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=default-avatar'
+
+  if (!avatar) {
+    return defaultAvatar
+  }
+
+  try {
+    const url = new URL(avatar)
+    if (url.protocol === 'https:' && url.hostname === 'api.dicebear.com') {
+      return avatar
+    }
+  } catch {
+    // ignore parse errors and fall back to default
+  }
+
+  return defaultAvatar
+}
+
 export default function Profile() {
   const { user, logout } = useAuth()
 
@@ -11,6 +31,7 @@ export default function Profile() {
   }
 
   const currentUser = getCurrentUser() || user
+  const avatarUrl = getSafeAvatarUrl(currentUser.avatar)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 p-6">
@@ -19,7 +40,7 @@ export default function Profile() {
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <img
-              src={currentUser.avatar}
+              src={avatarUrl}
               alt={currentUser.username}
               className="w-32 h-32 rounded-full border-4 border-indigo-500"
             />

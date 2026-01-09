@@ -15,16 +15,14 @@
  *   2. Ensure it has a package.json or at least one file
  *   3. The app will automatically appear in the selection menu
  */
-import "dotenv/config";
 import { readdirSync, statSync, existsSync } from "fs";
-import { join } from "path";
+import { join, relative } from "path";
 import { spawn } from "child_process";
 import * as readline from "readline";
 
 // Paths are relative to this script's location in services/wizard-run/
 const WORKBENCH_DIR = join(import.meta.dirname, "../..");
 const APPS_DIR = join(WORKBENCH_DIR, "apps");
-// WIZARD_BIN is absolute path to the wizard binary
 const WIZARD_BIN = process.env.WIZARD_BIN || join(process.env.HOME!, "development/wizard/dist/bin.js");
 
 interface AppInfo {

@@ -1,4 +1,5 @@
 // Fake authentication utilities using localStorage
+import { nanoid } from 'nanoid'
 import posthog from 'posthog-js'
 
 export interface FakeUser {
@@ -67,7 +68,7 @@ export function fakeSignup(username: string, email: string, password: string): F
   // Fake signup - creates a new user
   const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`
   const newUser: FakeUser = {
-    id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `user_${nanoid()}`,
     username,
     email,
     avatar,

@@ -1,6 +1,26 @@
 import { NavLink, Link } from "react-router";
 import { useAuth } from "~/context/AuthContext";
 
+function getSafeAvatarUrl(avatar: string | null | undefined): string {
+  const defaultAvatar =
+    'https://api.dicebear.com/7.x/avataaars/svg?seed=default-avatar'
+
+  if (!avatar) {
+    return defaultAvatar
+  }
+
+  try {
+    const url = new URL(avatar)
+    if (url.protocol === 'https:' && url.hostname === 'api.dicebear.com') {
+      return avatar
+    }
+  } catch {
+    // ignore parse errors and fall back to default
+  }
+
+  return defaultAvatar
+}
+
 export default function Navbar() {
   const { user, isAuthenticated } = useAuth();
 
@@ -58,7 +78,7 @@ export default function Navbar() {
               className="flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition"
             >
               <img
-                src={user.avatar}
+                src={getSafeAvatarUrl(user.avatar)}
                 alt={user.username}
                 className="w-8 h-8 rounded-full"
               />
