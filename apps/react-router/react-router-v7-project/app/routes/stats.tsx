@@ -1,27 +1,7 @@
 import { Navigate } from 'react-router'
 import { useAuth } from '~/context/AuthContext'
-import { getAllUsers, getCurrentUser } from '~/lib/utils/auth'
+import { getAllUsers, getCurrentUser, getAvatarUrl } from '~/lib/utils/auth'
 import type { Route } from './+types/stats'
-
-function getSafeAvatarUrl(avatar: string | null | undefined): string {
-  const defaultAvatar =
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=default-avatar'
-
-  if (!avatar) {
-    return defaultAvatar
-  }
-
-  try {
-    const url = new URL(avatar)
-    if (url.protocol === 'https:' && url.hostname === 'api.dicebear.com') {
-      return avatar
-    }
-  } catch {
-    // ignore parse errors and fall back to default
-  }
-
-  return defaultAvatar
-}
 
 export default function Stats() {
   const { user } = useAuth()
@@ -95,7 +75,7 @@ export default function Stats() {
                     {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
                   </div>
                   <img
-                    src={getSafeAvatarUrl(u.avatar)}
+                    src={getAvatarUrl(u.username)}
                     alt={u.username}
                     className="w-12 h-12 rounded-full"
                   />

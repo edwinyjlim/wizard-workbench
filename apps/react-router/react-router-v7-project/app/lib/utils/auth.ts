@@ -18,6 +18,11 @@ export interface FakeUser {
 const STORAGE_KEY = 'fake_country_explorer_user'
 const USERS_KEY = 'fake_country_explorer_users'
 
+/** Generate a safe avatar URL from a username */
+export function getAvatarUrl(username: string): string {
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`
+}
+
 export function getCurrentUser(): FakeUser | null {
   if (typeof window === 'undefined') return null
   const stored = localStorage.getItem(STORAGE_KEY)
