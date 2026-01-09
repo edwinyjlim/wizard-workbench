@@ -65,7 +65,7 @@ export function fakeLogin(username: string, password: string): FakeUser | null {
 
 export function fakeSignup(username: string, email: string, password: string): FakeUser {
   // Fake signup - creates a new user
-  const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
+  const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`
   const newUser: FakeUser = {
     id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     username,
