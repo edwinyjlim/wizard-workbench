@@ -40,7 +40,6 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
     prompt: userPrompt,
     options: {
       model: "claude-opus-4-5-20251101",
-      maxTurns: 30,
       allowedTools: ["Read", "Grep", "Glob", "Bash"],
       cwd: process.cwd(),
       permissionMode: "bypassPermissions",
