@@ -56,6 +56,50 @@ interface Options {
 }
 
 // ============================================================================
+// PR Helpers
+// ============================================================================
+
+interface PRMetadata {
+  appName: string;
+  shortId: string;
+  branch: string;
+  duration?: number;
+}
+
+function buildPRTitle(meta: PRMetadata): string {
+  return `[CI] (${meta.shortId}) ${meta.appName}`;
+}
+
+function buildPRBody(meta: PRMetadata): string {
+  const lines = [
+    `Automated wizard test on \`${meta.appName}\``,
+    "",
+    `Timestamp: ${new Date().toISOString()}`,
+    `App directory: \`apps/${meta.appName}\``,
+    `Branch: \`${meta.branch}\``,
+  ];
+  if (meta.duration !== undefined) {
+    lines.push(`Duration: ${formatMs(meta.duration)}`);
+  }
+  return lines.join("\n");
+}
+
+async function runEvaluation(prUrl: string): Promise<void> {
+  const prNumber = extractPRNumber(prUrl);
+  if (!prNumber) {
+    console.warn(`      Could not extract PR number from URL: ${prUrl}\n`);
+    return;
+  }
+  console.log(`      PR #${prNumber}\n`);
+  const evalResult = await runEvaluator(prNumber);
+  if (!evalResult.success) {
+    console.warn(`      Evaluation failed: ${evalResult.error}\n`);
+  } else {
+    console.log(`      Evaluation complete\n`);
+  }
+}
+
+// ============================================================================
 // CLI
 // ============================================================================
 
@@ -263,13 +307,19 @@ async function pushOnlyMode(opts: Options): Promise<void> {
   const appName = branchMatch?.[1] || targetBranch;
   const branchShortId = branchMatch?.[2] || shortId();
 
+  const prMeta: PRMetadata = {
+    appName,
+    shortId: branchShortId,
+    branch: targetBranch,
+  };
+
   const result = pushAndCreatePR({
     repoRoot,
     branch: targetBranch,
     remote: opts.remote,
     base: opts.base,
-    title: `[Wizard CI] ${appName} (${branchShortId})`,
-    body: `Automated wizard test on \`${appName}\`\n\nBranch: \`${targetBranch}\``,
+    title: buildPRTitle(prMeta),
+    body: buildPRBody(prMeta),
     deleteBranchAfter: opts.deleteBranch,
     returnToBranch: originalBranch,
   });
@@ -288,19 +338,8 @@ async function pushOnlyMode(opts: Options): Promise<void> {
 
   // Run evaluation if requested
   if (opts.evaluate && result.prUrl) {
-    const prNumber = extractPRNumber(result.prUrl);
-    if (prNumber) {
-      console.log("[3/3] Running PR evaluation...");
-      console.log(`      PR #${prNumber}\n`);
-      const evalResult = await runEvaluator(prNumber);
-      if (!evalResult.success) {
-        console.warn(`      Evaluation failed: ${evalResult.error}\n`);
-      } else {
-        console.log(`      Evaluation complete\n`);
-      }
-    } else {
-      console.warn(`      Could not extract PR number from URL: ${result.prUrl}\n`);
-    }
+    console.log("[3/3] Running PR evaluation...");
+    await runEvaluation(result.prUrl);
   }
 
   if (opts.deleteBranch) {
@@ -426,13 +465,20 @@ async function runCI(app: App, opts: Options): Promise<boolean> {
   const remoteUrl = getRemoteUrl(repoRoot, opts.remote);
   console.log(`      Remote: ${opts.remote} (${remoteUrl})`);
 
+  const prMeta: PRMetadata = {
+    appName: app.name,
+    shortId: branchShortId,
+    branch: branchName,
+    duration: result.duration,
+  };
+
   const prResult = pushAndCreatePR({
     repoRoot,
     branch: branchName,
     remote: opts.remote,
     base: opts.base,
-    title: `[Wizard CI] ${app.name} (${branchShortId})`,
-    body: `Automated wizard test on \`${app.name}\`\n\nDuration: ${formatMs(result.duration)}`,
+    title: buildPRTitle(prMeta),
+    body: buildPRBody(prMeta),
     deleteBranchAfter: opts.deleteBranch,
     returnToBranch: originalBranch,
   });
@@ -447,19 +493,8 @@ async function runCI(app: App, opts: Options): Promise<boolean> {
 
   // Run evaluation if requested
   if (opts.evaluate && prResult.prUrl) {
-    const prNumber = extractPRNumber(prResult.prUrl);
-    if (prNumber) {
-      console.log("[6/6] Running PR evaluation...");
-      console.log(`      PR #${prNumber}\n`);
-      const evalResult = await runEvaluator(prNumber);
-      if (!evalResult.success) {
-        console.warn(`      Evaluation failed: ${evalResult.error}\n`);
-      } else {
-        console.log(`      Evaluation complete\n`);
-      }
-    } else {
-      console.warn(`      Could not extract PR number from URL: ${prResult.prUrl}\n`);
-    }
+    console.log("[6/6] Running PR evaluation...");
+    await runEvaluation(prResult.prUrl);
   }
 
   if (opts.deleteBranch) {
