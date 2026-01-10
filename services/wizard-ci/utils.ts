@@ -113,10 +113,17 @@ export interface WizardResult {
   error?: string;
 }
 
+export interface WizardOptions {
+  ci?: boolean;
+  region?: "us" | "eu";
+  apiKey?: string;
+}
+
 /**
- * Run wizard on an app - spawns with inherited stdio for full interactivity
+ * Run wizard on an app - spawns with inherited stdio for full interactivity.
+ * In CI mode, uses --ci flag with required region and api-key.
  */
-export function runWizard(appPath: string): Promise<WizardResult> {
+export function runWizard(appPath: string, options: WizardOptions = {}): Promise<WizardResult> {
   const wizardBin = getWizardBin();
   const start = Date.now();
 
@@ -128,9 +135,35 @@ export function runWizard(appPath: string): Promise<WizardResult> {
     });
   }
 
+  // Build wizard args
+  const args = [wizardBin, "--local-mcp"];
+
+  if (options.ci) {
+    // Validate CI mode requirements - read from env vars (loaded from .env)
+    const region = process.env.POSTHOG_REGION as "us" | "eu" | undefined;
+    const apiKey = process.env.POSTHOG_PERSONAL_API_KEY;
+
+    if (!region) {
+      return Promise.resolve({
+        success: false,
+        duration: 0,
+        error: "CI mode requires POSTHOG_REGION to be defined in .env file (us or eu)",
+      });
+    }
+    if (!apiKey) {
+      return Promise.resolve({
+        success: false,
+        duration: 0,
+        error: "CI mode requires POSTHOG_PERSONAL_API_KEY to be defined in .env file",
+      });
+    }
+
+    args.push("--ci", "--region", region, "--api-key", apiKey, "--install-dir", appPath);
+  }
+
   return new Promise((resolve) => {
     // Spawn exactly like wizard-run does - full stdio inherit for interactivity
-    const child = spawn("node", [wizardBin, "--local-mcp"], {
+    const child = spawn("node", args, {
       cwd: appPath,
       stdio: "inherit",
       env: process.env,
