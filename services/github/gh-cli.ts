@@ -12,7 +12,7 @@ import type { PRData, PRFile } from "./types.js";
 // ============================================================================
 
 function escapeForShell(str: string): string {
-  return str.replace(/"/g, '\\"').replace(/`/g, "\\`");
+  return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/`/g, "\\`");
 }
 
 // ============================================================================
