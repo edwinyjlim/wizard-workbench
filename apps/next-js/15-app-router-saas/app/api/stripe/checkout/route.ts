@@ -5,6 +5,7 @@ import { setSession } from '@/lib/auth/session';
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/payments/stripe';
 import Stripe from 'stripe';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -88,10 +89,38 @@ export async function GET(request: NextRequest) {
       })
       .where(eq(teams.id, userTeam[0].teamId));
 
+    // Track subscription created event
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: user[0].email,
+      event: 'subscription_created',
+      properties: {
+        email: user[0].email,
+        user_id: user[0].id,
+        team_id: userTeam[0].teamId,
+        plan_name: (plan.product as Stripe.Product).name,
+        plan_id: productId,
+        subscription_id: subscriptionId,
+        subscription_status: subscription.status,
+        price_amount: plan.unit_amount,
+        price_currency: plan.currency,
+        billing_interval: plan.recurring?.interval,
+        source: 'server'
+      }
+    });
+
     await setSession(user[0]);
     return NextResponse.redirect(new URL('/dashboard', request.url));
   } catch (error) {
     console.error('Error handling successful checkout:', error);
+
+    // Track checkout error
+    const posthog = getPostHogClient();
+    posthog.captureException(error as Error, undefined, {
+      context: 'stripe_checkout_callback',
+      session_id: sessionId
+    });
+
     return NextResponse.redirect(new URL('/error', request.url));
   }
 }
