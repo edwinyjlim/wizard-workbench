@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { postPRComment, type PRData } from "./github.js";
+import { postPRComment, type PRData } from "../github/index.js";
 import { buildSystemPrompt, buildUserPrompt } from "./prompt-builder.js";
 
 export interface EvaluateOptions {
@@ -54,10 +54,10 @@ export async function evaluatePR(options: EvaluateOptions): Promise<EvaluateResu
       if (textContent) {
         // Log full text if it looks like an error, otherwise preview
         if (textContent.text.includes("API Error")) {
-          console.log("Agent:", textContent.text);
+          console.log("AGENT:", textContent.text);
         } else {
-          const preview = textContent.text.substring(0, 100);
-          console.log("Agent:", preview + (textContent.text.length > 100 ? "..." : ""));
+          const preview = textContent.text.substring(0, 250);
+          console.log("AGENT:", preview + (textContent.text.length > 250 ? "..." : ""));
         }
       }
     }
@@ -119,8 +119,16 @@ ${JSON.stringify(usageData.modelUsage, null, 2)}
   let commentUrl: string | undefined;
   if (!testRun && prData.number > 0) {
     console.log("\nPosting review comment to GitHub...");
-    commentUrl = await postPRComment(prData.number, reviewComment);
-    console.log(`Comment posted: ${commentUrl}`);
+    try {
+      commentUrl = postPRComment(prData.number, reviewComment, process.cwd());
+      console.log(`Comment posted: ${commentUrl}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Warning: Failed to post comment to GitHub: ${message}`);
+      console.log("\n--- Review Comment (not posted) ---");
+      console.log(reviewComment);
+      console.log("--- END ---\n");
+    }
   } else {
     console.log("\n--- TEST RUN: Review Comment Preview ---");
     console.log(reviewComment);

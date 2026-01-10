@@ -5,6 +5,7 @@ import { join } from "path";
 import * as readline from "readline";
 import { evaluatePR } from "./evaluator.js";
 import { fetchLocalBranch } from "./git-local.js";
+import { fetchPR } from "../github/index.js";
 
 function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({
@@ -142,10 +143,13 @@ async function main(): Promise<void> {
   }
 
   // Validate environment
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("Error: ANTHROPIC_API_KEY environment variable is required");
+  // Use EVALUATOR_ANTHROPIC_API_KEY to avoid conflict with wizard's ANTHROPIC_API_KEY
+  if (!process.env.EVALUATOR_ANTHROPIC_API_KEY) {
+    console.error("Error: EVALUATOR_ANTHROPIC_API_KEY environment variable is required");
     process.exit(1);
   }
+  // Set ANTHROPIC_API_KEY for the Claude Agent SDK from our namespaced variable
+  process.env.ANTHROPIC_API_KEY = process.env.EVALUATOR_ANTHROPIC_API_KEY;
 
   // For local branch mode, always use test-run (can't post to GitHub without a PR)
   if (hasBranch && !args.testRun) {
@@ -153,15 +157,7 @@ async function main(): Promise<void> {
     args.testRun = true;
   }
 
-  // For PR mode, check GitHub token
-  if (hasPr) {
-    const token = process.env.GITHUB_TOKEN;
-    const hasValidToken = token && !token.startsWith("ghp_...") && token.length > 10;
-    if (!hasValidToken && !args.testRun) {
-      console.warn("Warning: GITHUB_TOKEN not set or invalid. Using --test-run mode (comment will not be posted).");
-      args.testRun = true;
-    }
-  }
+  // Note: We use the gh CLI for GitHub operations, which handles authentication automatically
 
   // Create test run directory if needed
   let testRunDir: string | undefined;
@@ -186,9 +182,8 @@ async function main(): Promise<void> {
     // Fetch PR data from GitHub or local git
     let prData;
     if (hasPr) {
-      const { fetchPR } = await import("./github.js");
       console.log(`Fetching PR #${args.prNumber} from GitHub...`);
-      prData = await fetchPR(args.prNumber!);
+      prData = fetchPR(args.prNumber!, process.cwd());
     } else {
       console.log(`Fetching local branch "${args.branch}" (base: ${args.baseBranch})...`);
       prData = await fetchLocalBranch({
