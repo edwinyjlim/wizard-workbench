@@ -6,6 +6,7 @@
  * an interactive menu to select which app to run the wizard on.
  *
  * Usage: npx tsx services/wizard-run/index.ts
+ *        npx tsx services/wizard-run/index.ts --ci  # Run in CI mode (non-interactive)
  *
  * To add new test apps:
  *   1. Create a new directory under /apps/<framework>/<app-name>
@@ -19,6 +20,34 @@ import { findApps, runWizard, type App } from "../wizard-ci/utils.js";
 
 const WORKBENCH = join(import.meta.dirname, "../..");
 const APPS_DIR = join(WORKBENCH, "apps");
+
+interface Options {
+  ci: boolean;
+}
+
+function parseArgs(): Options {
+  const args = process.argv.slice(2);
+  const opts: Options = {
+    ci: false,
+  };
+
+  for (const arg of args) {
+    if (arg === "--ci") opts.ci = true;
+    else if (arg === "--help" || arg === "-h") {
+      console.log(`
+wizard-run: Interactive app selector for running the PostHog wizard
+
+Usage:
+  pnpm wizard-run              Interactive mode (default)
+  pnpm wizard-run --ci         Run in CI mode (non-interactive)
+                               Requires POSTHOG_REGION and POSTHOG_PERSONAL_API_KEY in .env
+`);
+      process.exit(0);
+    }
+  }
+
+  return opts;
+}
 
 function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -47,6 +76,7 @@ async function selectApp(apps: App[]): Promise<App> {
 }
 
 async function main(): Promise<void> {
+  const opts = parseArgs();
   const apps = findApps(APPS_DIR);
 
   if (apps.length === 0) {
@@ -59,9 +89,12 @@ async function main(): Promise<void> {
   console.log();
   console.log(`Running wizard on: ${selectedApp.name}`);
   console.log(`Path: ${selectedApp.path}`);
+  if (opts.ci) {
+    console.log(`Mode: CI (non-interactive)`);
+  }
   console.log();
 
-  const result = await runWizard(selectedApp.path);
+  const result = await runWizard(selectedApp.path, { ci: opts.ci });
 
   if (!result.success) {
     console.error(`Wizard failed: ${result.error}`);

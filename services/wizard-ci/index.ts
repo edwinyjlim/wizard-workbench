@@ -139,6 +139,9 @@ function parseArgs(): Options {
       console.log(`
 wizard-ci: Run wizard on test apps and create PRs
 
+Runs wizard in CI mode (non-interactive). Requires POSTHOG_REGION and
+POSTHOG_PERSONAL_API_KEY to be defined in .env file.
+
 Usage:
   pnpm wizard-ci                     Interactive app selection
   pnpm wizard-ci --app <name>        Test specific app
@@ -395,9 +398,9 @@ async function runCI(app: App, opts: Options): Promise<boolean> {
     return false;
   }
 
-  // 2. Run wizard
+  // 2. Run wizard (always in CI mode)
   console.log("[2/5] Running wizard...\n");
-  const result = await runWizard(app.path);
+  const result = await runWizard(app.path, { ci: true });
   console.log();
 
   if (!result.success) {

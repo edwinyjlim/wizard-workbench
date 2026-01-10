@@ -53,8 +53,8 @@ procs:
     env_file: .env
 
   wizard-ci-local:
-    # Runs the CI flow and agent evaluates code locally
-    shell: "pnpm wizard-ci --local"
+    # Runs the CI flow code locally
+    shell: "pnpm wizard-ci --local --evaluate"
     autostart: false
     env_file: .env
 
