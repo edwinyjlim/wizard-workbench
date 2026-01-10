@@ -3,6 +3,17 @@
  */
 import { execSync } from "child_process";
 
+/**
+ * Escape a string for safe inclusion inside a double-quoted shell argument.
+ * This escapes backslashes and double quotes so that the shell passes the
+ * intended value through to git.
+ */
+function escapeDoubleQuotedArg(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\") // escape backslashes first
+    .replace(/"/g, '\\"'); // then escape double quotes
+}
+
 // ============================================================================
 // Low-level git commands
 // ============================================================================
@@ -101,7 +112,7 @@ export function listBranches(cwd: string, pattern?: string): string[] {
 
 export function commitAll(cwd: string, message: string): string {
   git("add -A", cwd);
-  git(`commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
+  git(`commit -m "${escapeDoubleQuotedArg(message)}"`, cwd);
   return git("rev-parse --short HEAD", cwd);
 }
 
@@ -110,7 +121,7 @@ export function commitAll(cwd: string, message: string): string {
  */
 export function commitPath(repoRoot: string, relativePath: string, message: string): string {
   git(`add "${relativePath}"`, repoRoot);
-  git(`commit -m "${message.replace(/"/g, '\\"')}"`, repoRoot);
+  git(`commit -m "${escapeDoubleQuotedArg(message)}"`, repoRoot);
   return git("rev-parse --short HEAD", repoRoot);
 }
 
