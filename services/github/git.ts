@@ -101,7 +101,7 @@ export function listBranches(cwd: string, pattern?: string): string[] {
 
 export function commitAll(cwd: string, message: string): string {
   git("add -A", cwd);
-  execSync("git", ["commit", "-m", message], { cwd, encoding: "utf-8", stdio: "pipe" });
+  git(`commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
   return git("rev-parse --short HEAD", cwd);
 }
 
@@ -110,7 +110,7 @@ export function commitAll(cwd: string, message: string): string {
  */
 export function commitPath(repoRoot: string, relativePath: string, message: string): string {
   git(`add "${relativePath}"`, repoRoot);
-  execSync("git", ["commit", "-m", message], { cwd: repoRoot, encoding: "utf-8", stdio: "pipe" });
+  git(`commit -m "${message.replace(/"/g, '\\"')}"`, repoRoot);
   return git("rev-parse --short HEAD", repoRoot);
 }
 
