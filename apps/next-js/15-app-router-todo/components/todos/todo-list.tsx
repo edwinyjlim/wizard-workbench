@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import posthog from 'posthog-js';
 import { Todo } from '@/lib/data';
 import { TodoForm } from './todo-form';
 import { TodoItem } from './todo-item';
@@ -21,9 +22,18 @@ export function TodoList() {
       if (response.ok) {
         const data = await response.json();
         setTodos(data);
+        posthog.capture('todos_loaded', {
+          total_count: data.length,
+          active_count: data.filter((t: Todo) => !t.completed).length,
+          completed_count: data.filter((t: Todo) => t.completed).length,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch todos:', error);
+      posthog.capture('todo_fetch_error', {
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      posthog.captureException(error);
     } finally {
       setLoading(false);
     }
@@ -42,9 +52,19 @@ export function TodoList() {
       if (response.ok) {
         const newTodo = await response.json();
         setTodos([...todos, newTodo]);
+        posthog.capture('todo_created', {
+          todo_id: newTodo.id,
+          has_description: !!description,
+          title_length: title.length,
+          total_todos_after: todos.length + 1,
+        });
       }
     } catch (error) {
       console.error('Failed to add todo:', error);
+      posthog.capture('todo_create_error', {
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      posthog.captureException(error);
     }
   };
 
@@ -61,13 +81,31 @@ export function TodoList() {
       if (response.ok) {
         const updatedTodo = await response.json();
         setTodos(todos.map((todo) => (todo.id === id ? updatedTodo : todo)));
+
+        if (completed) {
+          posthog.capture('todo_completed', {
+            todo_id: id,
+            todo_title: updatedTodo.title,
+          });
+        } else {
+          posthog.capture('todo_uncompleted', {
+            todo_id: id,
+            todo_title: updatedTodo.title,
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to update todo:', error);
+      posthog.capture('todo_update_error', {
+        todo_id: id,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      posthog.captureException(error);
     }
   };
 
   const handleDeleteTodo = async (id: number) => {
+    const todoToDelete = todos.find((todo) => todo.id === id);
     try {
       const response = await fetch(`/api/todos/${id}`, {
         method: 'DELETE',
@@ -75,9 +113,20 @@ export function TodoList() {
 
       if (response.ok) {
         setTodos(todos.filter((todo) => todo.id !== id));
+        posthog.capture('todo_deleted', {
+          todo_id: id,
+          todo_title: todoToDelete?.title,
+          was_completed: todoToDelete?.completed,
+          total_todos_after: todos.length - 1,
+        });
       }
     } catch (error) {
       console.error('Failed to delete todo:', error);
+      posthog.capture('todo_delete_error', {
+        todo_id: id,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      posthog.captureException(error);
     }
   };
 
@@ -100,6 +149,7 @@ export function TodoList() {
           <Link
             href="/about"
             className="text-sm text-primary hover:underline"
+            onClick={() => posthog.capture('about_page_link_clicked')}
           >
             About
           </Link>
