@@ -5,6 +5,7 @@ import { setSession } from '@/lib/auth/session';
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/payments/stripe';
 import Stripe from 'stripe';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -76,17 +77,45 @@ export async function GET(request: NextRequest) {
       throw new Error('User is not associated with any team.');
     }
 
+    const planName = (plan.product as Stripe.Product).name;
+
     await db
       .update(teams)
       .set({
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
         stripeProductId: productId,
-        planName: (plan.product as Stripe.Product).name,
+        planName: planName,
         subscriptionStatus: subscription.status,
         updatedAt: new Date(),
       })
       .where(eq(teams.id, userTeam[0].teamId));
+
+    // PostHog: Track subscription created event
+    const posthog = getPostHogClient();
+    posthog.identify({
+      distinctId: user[0].email,
+      properties: {
+        email: user[0].email,
+        userId: user[0].id,
+        teamId: userTeam[0].teamId,
+        planName: planName,
+        subscriptionStatus: subscription.status,
+      },
+    });
+    posthog.capture({
+      distinctId: user[0].email,
+      event: 'subscription_created',
+      properties: {
+        userId: user[0].id,
+        teamId: userTeam[0].teamId,
+        planName: planName,
+        productId: productId,
+        subscriptionId: subscriptionId,
+        subscriptionStatus: subscription.status,
+        customerId: customerId,
+      },
+    });
 
     await setSession(user[0]);
     return NextResponse.redirect(new URL('/dashboard', request.url));
